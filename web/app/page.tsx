@@ -12,6 +12,7 @@ export default function Home() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6">
       <h1 className="font-serif text-5xl tracking-tight sm:text-6xl">nlp &amp; cv lab</h1>
+      <p className="mt-2 text-lg">by Manas Pandya</p>
       <p className="mt-3 max-w-xl text-mute">
         fifteen lab tasks in nlp and computer vision. models are trained in pytorch, exported to onnx and run
         right here in the browser, so nothing gets uploaded anywhere.
