@@ -79,6 +79,7 @@ def main():
     ap.add_argument("--alpha", type=float, default=0.5, help="weight of the hard-label loss when distilling")
     ap.add_argument("--kd-t", type=float, default=2.0)
     ap.add_argument("--train-logits", action="store_true", help="also save logits on the train set")
+    ap.add_argument("--limit", type=int, default=0, help="only use the first n train rows (smoke tests)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="runs")
     ap.add_argument("--push", default=None, help="hf model repo for the weights")
@@ -93,10 +94,12 @@ def main():
     mdl.to(d)
 
     ge = data.load_ge()
+    if a.limit:
+        ge = {k: (x[: a.limit], y[: a.limit]) for k, (x, y) in ge.items()}
     xd, _ = data.load_dair("test")
     soft = None
     if a.kd:
-        soft = np.mean([np.load(f)["train"] for f in a.kd], 0).astype(np.float32)
+        soft = np.mean([np.load(f)["train"] for f in a.kd], 0).astype(np.float32)[: len(ge["train"][0])]
         assert soft.shape == ge["train"][1].shape
     col = partial(data.collate, pad_id=tok.pad_token_id)
     tr = data.TextDs(*ge["train"], tok, a.max_len, soft=soft)
