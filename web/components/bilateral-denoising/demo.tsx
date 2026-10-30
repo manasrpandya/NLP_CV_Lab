@@ -197,6 +197,7 @@ export function Demo() {
       const m = e.data;
       if (m.type === "progress") setNN((o) => ({ ...o, p: m.p }));
       if (m.type === "tile") setBusy(m.p);
+      if (m.type === "ep") setNN((o) => ({ ...o, ep: m.ep }));
       if (m.type === "ready") {
         nnReady.current = true;
         setNN({ st: "ready", p: 1, ep: m.ep });

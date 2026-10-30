@@ -10,6 +10,17 @@ const tile = 256;
 const pad = 24;
 let sess: ort.InferenceSession | null = null;
 let ep = "";
+let buf: Uint8Array;
+
+// some webgpu stacks (e.g. software adapters) never return from run(), so every gpu call gets a deadline
+const timed = <T,>(p: Promise<T>, ms: number) =>
+  Promise.race([p, new Promise<never>((_, no) => setTimeout(() => no(new Error("timeout")), ms))]);
+
+async function toWasm() {
+  sess = await ort.InferenceSession.create(buf, { executionProviders: ["wasm"] });
+  ep = "wasm";
+  postMessage({ type: "ep", ep });
+}
 
 async function load(force?: string) {
   const r = await fetch(url);
@@ -24,7 +35,7 @@ async function load(force?: string) {
     got += value.length;
     if (n) postMessage({ type: "progress", p: got / n });
   }
-  const buf = new Uint8Array(got);
+  buf = new Uint8Array(got);
   let o = 0;
   for (const p of parts) {
     buf.set(p, o);
@@ -34,10 +45,9 @@ async function load(force?: string) {
   for (const e of force ? [force] : gpu ? ["webgpu", "wasm"] : ["wasm"]) {
     try {
       const sx = await ort.InferenceSession.create(buf, { executionProviders: [e] });
-      // warm up on a small input; some webgpu stacks (software adapters) hang, so give up after 15 s
-      const x = new ort.Tensor("float32", new Float32Array(64 * 64), [1, 1, 64, 64]);
-      const t = new Promise((_, no) => setTimeout(() => no(new Error("warmup timeout")), 15000));
-      await Promise.race([sx.run({ x }), t]);
+      // warm up on a full tile, this also compiles the gpu shaders
+      const k = tile + 2 * pad;
+      await timed(sx.run({ x: new ort.Tensor("float32", new Float32Array(3 * k * k), [3, 1, k, k]) }), 20000);
       sess = sx;
       ep = e;
       break;
@@ -64,7 +74,16 @@ async function run(x: Float32Array, w: number, h: number) {
       const y0 = Math.max(0, Math.min(cy - pad, h - th));
       for (let c = 0; c < 3; c++)
         for (let r = 0; r < th; r++) inp.set(x.subarray(c * w * h + (y0 + r) * w + x0, c * w * h + (y0 + r) * w + x0 + tw), (c * th + r) * tw);
-      const out = await sess!.run({ x: new ort.Tensor("float32", inp, [3, 1, th, tw]) });
+      const feed = { x: new ort.Tensor("float32", inp, [3, 1, th, tw]) };
+      let out: ort.InferenceSession.OnnxValueMapType;
+      try {
+        out = ep === "webgpu" ? await timed(sess!.run(feed), 20000) : await sess!.run(feed);
+      } catch (err) {
+        if (ep !== "webgpu") throw err;
+        console.warn("webgpu run failed, falling back to wasm", err);
+        await toWasm();
+        out = await sess!.run(feed);
+      }
       postMessage({ type: "tile", p: ++done / nt });
       const oy = out.y.data as Float32Array;
       const om = out.maps.data as Float32Array;
