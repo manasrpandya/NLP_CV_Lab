@@ -5,7 +5,7 @@ import { bgl } from "@/lib/bilateral-denoising/gl";
 import { autoParams, chan, estSigma, psnr } from "@/lib/bilateral-denoising/est";
 import { Tip } from "./tip";
 
-const samples = ["parrots", "lighthouse", "houses", "monarch"];
+const samples = ["houses", "lighthouse", "parrots", "monarch"];
 const maxSide = 768;
 
 type mode = "manual" | "auto" | "neural";
@@ -104,9 +104,9 @@ export function Demo() {
   const g = useRef<bgl | null>(null);
   const wk = useRef<Worker | null>(null);
 
-  const [src, setSrc] = useState<string>("parrots");
+  const [src, setSrc] = useState<string>("houses");
   const [mode, setMode] = useState<mode>("auto");
-  const [sig, setSig] = useState(25);
+  const [sig, setSig] = useState(60);
   const [r, setR] = useState(3);
   const [ss, setSs] = useState(1.6);
   const [sr, setSr] = useState(62);
