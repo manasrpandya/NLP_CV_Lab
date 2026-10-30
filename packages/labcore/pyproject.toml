@@ -1,0 +1,10 @@
+[project]
+name = "labcore"
+version = "0.1.0"
+description = "small shared helpers for the lab tasks"
+requires-python = ">=3.12"
+dependencies = ["numpy>=1.26"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

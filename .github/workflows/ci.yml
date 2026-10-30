@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uvx ruff check .
+      - run: uvx ruff format --check .
+
+  find:
+    runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.f.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        run: echo "dirs=$(ls -d projects/*/ 2>/dev/null | xargs -I{} sh -c 'test -f {}pyproject.toml && echo {}' | jq -Rsc 'split("\n")|map(select(length>0))')" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: find
+    if: needs.find.outputs.dirs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.find.outputs.dirs) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      # cpu torch only, tests are small and never download datasets
+      - run: uv venv && uv pip install --torch-backend=cpu -e . pytest
+      - run: uv run --no-sync pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
