@@ -24,7 +24,9 @@ def load_glove():
     from huggingface_hub import hf_hub_download
     from safetensors.numpy import load_file
 
-    voc = json.load(open(hf_hub_download(glove_id, "0_WordEmbeddings/whitespacetokenizer_config.json")))["vocab"]
+    voc = json.load(open(hf_hub_download(glove_id, "0_WordEmbeddings/whitespacetokenizer_config.json")))[
+        "vocab"
+    ]
     w = load_file(hf_hub_download(glove_id, "0_WordEmbeddings/model.safetensors"))
     return voc, next(iter(w.values()))
 
@@ -102,7 +104,10 @@ def main():
     mdl = BiGRU(emb).to(d)
     # embeddings get a smaller lr so the glove geometry isn't wrecked early on
     opt = torch.optim.Adam(
-        [{"params": mdl.emb.parameters(), "lr": a.lr / 10}, {"params": [p for n, p in mdl.named_parameters() if not n.startswith("emb")]}],
+        [
+            {"params": mdl.emb.parameters(), "lr": a.lr / 10},
+            {"params": [p for n, p in mdl.named_parameters() if not n.startswith("emb")]},
+        ],
         lr=a.lr,
     )
     lossf = nn.BCEWithLogitsLoss()
@@ -122,7 +127,11 @@ def main():
                 tl, nb = tl + los.item(), nb + 1
             zv = logits(mdl, enc["validation"], d)
             p = metrics.sig(zv)
-            f = float(metrics.f1s(ge["validation"][1], metrics.predict(p, metrics.tune_th(ge["validation"][1], p))).mean())
+            f = float(
+                metrics.f1s(
+                    ge["validation"][1], metrics.predict(p, metrics.tune_th(ge["validation"][1], p))
+                ).mean()
+            )
             log["ep"].append({"ep": ep, "loss": tl / nb, "val_macro_f1": f})
             print(f"ep {ep} loss {tl / nb:.4f} val macro-f1 {f:.4f}", flush=True)
             if f > best:
@@ -140,7 +149,12 @@ def main():
         api = HfApi()
         api.create_repo(a.runs_repo, repo_type="dataset", exist_ok=True)
         for f in ["logits.npz", "log.json"]:
-            api.upload_file(path_or_fileobj=out / f, path_in_repo=f"{a.name}/{f}", repo_id=a.runs_repo, repo_type="dataset")
+            api.upload_file(
+                path_or_fileobj=out / f,
+                path_in_repo=f"{a.name}/{f}",
+                repo_id=a.runs_repo,
+                repo_type="dataset",
+            )
 
 
 if __name__ == "__main__":

@@ -172,7 +172,10 @@ def main():
             api.create_repo(a.runs_repo, repo_type="dataset", exist_ok=True)
             for f in ["logits.npz", "log.json"]:
                 api.upload_file(
-                    path_or_fileobj=out / f, path_in_repo=f"{a.name}/{f}", repo_id=a.runs_repo, repo_type="dataset"
+                    path_or_fileobj=out / f,
+                    path_in_repo=f"{a.name}/{f}",
+                    repo_id=a.runs_repo,
+                    repo_type="dataset",
                 )
     print("done", a.name, best)
 
