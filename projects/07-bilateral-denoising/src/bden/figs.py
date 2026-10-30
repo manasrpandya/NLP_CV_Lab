@@ -49,22 +49,29 @@ def psnr_vs_sigma():
         ("bm3d", "BM3D"),
         ("dncnn", "DnCNN-B"),
     ]
-    fig, axs = plt.subplots(1, 3, figsize=(7, 2.4), sharey=False)
+    cols = {
+        "bf_oracle": "C0",
+        "bf_iter": "C1",
+        "bf_joint": "C2",
+        "cnn": "C3",
+        "nlm": "C4",
+        "bm3d": "C7",
+        "dncnn": "k",
+    }
+    fig, axs = plt.subplots(1, 3, figsize=(7, 2.8), sharey=False)
     for ax, ds in zip(axs, data.test_sets):
         for k, lbl in keys:
             ys = [ev[k][f"{ds}/{s}"]["psnr"] for s in data.sigmas]
-            st = (
-                dict(lw=2, color="C3")
-                if k == "nbf"
-                else dict(lw=1, ls="--" if k in ("nlm", "bm3d", "dncnn", "cnn") else "-")
-            )
+            st = dict(lw=2, color="C3") if k == "nbf" else dict(lw=1, color=cols[k])
+            st["ls"] = "--" if k in ("nlm", "bm3d", "dncnn", "cnn") else "-"
             ax.plot(data.sigmas, ys, marker="o", ms=2.5, label=lbl, **st)
         ax.set_title(ds)
         ax.set_xlabel("noise sigma")
         ax.set_xticks(data.sigmas)
     axs[0].set_ylabel("PSNR (dB)")
-    axs[-1].legend(fontsize=6, frameon=False, loc="upper right")
-    fig.tight_layout()
+    h, lb = axs[0].get_legend_handles_labels()
+    fig.legend(h, lb, fontsize=6.5, frameon=False, loc="lower center", ncol=4)
+    fig.tight_layout(rect=(0, 0.14, 1, 1))
     fig.savefig(out / "psnr_sigma.pdf")
 
 
@@ -80,7 +87,7 @@ def crops():
         "bm3d": "BM3D",
         "clean": "clean",
     }
-    fig, axs = plt.subplots(len(rows), len(cols), figsize=(7, 2.6))
+    fig, axs = plt.subplots(len(rows), len(cols), figsize=(7, 3.1))
     for i, (ds, sig, idx, (r0, c0, s)) in enumerate(rows):
         x, y = data.noisy(ds, sig)[idx]
         for j, m in enumerate(cols):
@@ -104,11 +111,11 @@ def method_noise():
         ("nbf", "ours (nbf)"),
         ("bm3d", "BM3D"),
     ]
-    fig, axs = plt.subplots(1, 4, figsize=(7, 1.9))
+    fig, axs = plt.subplots(1, 4, figsize=(7, 2.15))
     for ax, (m, lbl) in zip(axs, ms):
         d = nbf_run(y)[0] if m == "nbf" else cpu_fn(m, y, 25)
         ax.imshow(y - d, cmap="gray", vmin=-0.25, vmax=0.25)
-        ax.set_title(f"{lbl}: noisy - output", fontsize=7)
+        ax.set_title(f"{lbl}: noisy - output", fontsize=6.5)
         ax.axis("off")
     fig.tight_layout(pad=0.3)
     fig.savefig(out / "method_noise.pdf")
@@ -125,7 +132,7 @@ def maps():
             (y, f"noisy, s={sig}", "gray", (0, 1)),
             (m[2] * 255, "sig_r pass 1", "magma", None),
             (m[0], "sig_s pass 1 (px)", "viridis", None),
-            (m[4], "guide", "gray", (0, 1)),
+            (m[4], "learned guide", "gray", tuple(np.percentile(m[4], [1, 99]))),
         ]
         for ax, (im, t, cm, lim) in zip(axs[i], show):
             h = ax.imshow(im, cmap=cm, **({"vmin": lim[0], "vmax": lim[1]} if lim else {}))

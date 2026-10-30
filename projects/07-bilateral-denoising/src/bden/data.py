@@ -70,7 +70,12 @@ def fetch():
     _kodak(root / "kodak24")
     if not (root / "sidd").exists():
         _sidd(root / "sidd")
-    for d in sorted(root.iterdir()):
+    # pretrained blind gray dncnn for the reference row
+    p = root / "dncnn_gray_blind.pth"
+    if not p.exists():
+        url = "https://github.com/cszn/KAIR/releases/download/v1.0/dncnn_gray_blind.pth"
+        urllib.request.urlretrieve(url, p)
+    for d in sorted(x for x in root.iterdir() if x.is_dir()):
         print(d.name, len(list(d.rglob("*.png"))))
 
 
