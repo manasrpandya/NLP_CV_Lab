@@ -11,7 +11,7 @@ const pad = 24;
 let sess: ort.InferenceSession | null = null;
 let ep = "";
 
-async function load() {
+async function load(force?: string) {
   const r = await fetch(url);
   const n = Number(r.headers.get("content-length")) || 0;
   const rd = r.body!.getReader();
@@ -31,9 +31,14 @@ async function load() {
     o += p.length;
   }
   const gpu = "gpu" in navigator && (await (navigator as unknown as { gpu: { requestAdapter(): Promise<unknown> } }).gpu.requestAdapter());
-  for (const e of gpu ? ["webgpu", "wasm"] : ["wasm"]) {
+  for (const e of force ? [force] : gpu ? ["webgpu", "wasm"] : ["wasm"]) {
     try {
-      sess = await ort.InferenceSession.create(buf, { executionProviders: [e] });
+      const sx = await ort.InferenceSession.create(buf, { executionProviders: [e] });
+      // warm up on a small input; some webgpu stacks (software adapters) hang, so give up after 15 s
+      const x = new ort.Tensor("float32", new Float32Array(64 * 64), [1, 1, 64, 64]);
+      const t = new Promise((_, no) => setTimeout(() => no(new Error("warmup timeout")), 15000));
+      await Promise.race([sx.run({ x }), t]);
+      sess = sx;
       ep = e;
       break;
     } catch (err) {
@@ -51,6 +56,8 @@ async function run(x: Float32Array, w: number, h: number) {
   const tw = Math.min(w, tile + 2 * pad);
   const th = Math.min(h, tile + 2 * pad);
   const inp = new Float32Array(3 * tw * th);
+  const nt = Math.ceil(w / tile) * Math.ceil(h / tile);
+  let done = 0;
   for (let cy = 0; cy < h; cy += tile) {
     for (let cx = 0; cx < w; cx += tile) {
       const x0 = Math.max(0, Math.min(cx - pad, w - tw));
@@ -58,6 +65,7 @@ async function run(x: Float32Array, w: number, h: number) {
       for (let c = 0; c < 3; c++)
         for (let r = 0; r < th; r++) inp.set(x.subarray(c * w * h + (y0 + r) * w + x0, c * w * h + (y0 + r) * w + x0 + tw), (c * th + r) * tw);
       const out = await sess!.run({ x: new ort.Tensor("float32", inp, [3, 1, th, tw]) });
+      postMessage({ type: "tile", p: ++done / nt });
       const oy = out.y.data as Float32Array;
       const om = out.maps.data as Float32Array;
       const ex = Math.min(cx + tile, w);
@@ -82,7 +90,7 @@ let busy: Promise<unknown> = Promise.resolve();
 
 self.onmessage = (e: MessageEvent) => {
   const m = e.data;
-  if (m.type === "load") busy = load().catch((err) => postMessage({ type: "error", msg: String(err) }));
+  if (m.type === "load") busy = load(m.ep).catch((err) => postMessage({ type: "error", msg: String(err) }));
   if (m.type === "run") {
     busy = busy.then(async () => {
       try {

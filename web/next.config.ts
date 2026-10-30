@@ -21,6 +21,11 @@ const cfg: NextConfig = {
           { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
         ],
       },
+      // module workers started from those pages need the same policy on their script
+      {
+        source: "/_next/static/:path*",
+        headers: [{ key: "Cross-Origin-Embedder-Policy", value: "credentialless" }],
+      },
     ];
   },
 };

@@ -75,21 +75,24 @@ def run_split(m, name, sig, pool):
     }
 
 
+def load_eval():
+    # one file per method so runs in parallel don't clobber each other
+    return {p.stem: load(p) for p in sorted((res / "eval").glob("*.json"))}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--methods", nargs="+", default=cpu_methods)
     ap.add_argument("--procs", type=int, default=4)
     a = ap.parse_args()
-    p = res / "eval.json"
-    out = load(p) if p.exists() else {}
     with Pool(a.procs) as pool:
         for m in a.methods:
-            out[m] = {}
+            out = {}
             for name, sig in splits:
                 r = run_split(m, name, sig, pool)
-                out[m][f"{name}/{sig}"] = r
+                out[f"{name}/{sig}"] = r
                 print(m, name, sig, round(r["psnr"], 2), round(r["ssim"], 4), flush=True)
-            dump(out, p)
+            dump(out, res / "eval" / f"{m}.json")
 
 
 if __name__ == "__main__":

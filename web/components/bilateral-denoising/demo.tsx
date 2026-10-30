@@ -86,6 +86,7 @@ export function Demo() {
     p: 0,
     ep: "",
   });
+  const [busy, setBusy] = useState(-1);
   const [heatRange, setHeatRange] = useState<[number, number]>([0, 0]);
 
   // mirror of everything the render loop needs, so the camera loop never sees stale state
@@ -146,6 +147,7 @@ export function Demo() {
         const x = new Float32Array(3 * n);
         for (let i = 0; i < n; i++) for (let c = 0; c < 3; c++) x[c * n + i] = px[4 * i + c] / 255;
         inflight.current = k;
+        setBusy(0);
         wk.current.postMessage({ type: "run", id: k, x, w: G.w, h: G.h }, [x.buffer]);
       }
       if (last.current && last.current.rgba.length === G.w * G.h * 4) G.useNN = true;
@@ -153,16 +155,17 @@ export function Demo() {
       G.useNN = false;
       G.filter(q);
     }
-    G.show(s.split, s.mode === "neural" && s.heat !== "none" && G.useNN ? 0.65 : 0, s.left === "clean");
+    G.show(s.split, s.mode === "neural" && s.heat !== "none" && G.useNN ? 0.85 : 0, s.left === "clean");
 
     if (!cam || s.frame % 15 === 1) {
       const out = G.useNN ? last.current!.rgba : G.read("out");
       const clean = G.read("clean");
       const ok = s.sig > 0;
+      const stale = s.mode === "neural" && !G.useNN;
       setStats((o) => ({
         ...o,
         pn: ok ? psnr(clean, G.read("noisy")) : NaN,
-        po: ok ? psnr(clean, out) : NaN,
+        po: ok && !stale ? psnr(clean, out) : NaN,
         est: s.mode === "auto" ? estVal.current : o.est,
       }));
     }
@@ -193,6 +196,7 @@ export function Demo() {
     w.onmessage = (e) => {
       const m = e.data;
       if (m.type === "progress") setNN((o) => ({ ...o, p: m.p }));
+      if (m.type === "tile") setBusy(m.p);
       if (m.type === "ready") {
         nnReady.current = true;
         setNN({ st: "ready", p: 1, ep: m.ep });
@@ -213,6 +217,7 @@ export function Demo() {
           rgba[4 * i + 3] = 255;
         }
         inflight.current = null;
+        setBusy(-1);
         if (rgba.length !== n * 4) return;
         last.current = { key: m.id, rgba, maps: m.maps, ms: m.ms };
         G.setNN(rgba, null);
@@ -221,7 +226,8 @@ export function Demo() {
         if (st.current.src !== "cam") requestAnimationFrame(draw);
       }
     };
-    w.postMessage({ type: "load" });
+    // ?ep=wasm forces the cpu backend, handy for debugging
+    w.postMessage({ type: "load", ep: new URLSearchParams(location.search).get("ep") ?? undefined });
   }, [draw, pushHeat]);
 
   // load still images
@@ -380,7 +386,15 @@ export function Demo() {
               {left}
             </span>
             <span className="pointer-events-none absolute top-2 right-2 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[11px] text-white">
-              {mode === "neural" ? (nn.st === "ready" ? "neural" : "loading model") : mode}
+              {mode !== "neural"
+                ? mode
+                : nn.st !== "ready"
+                  ? "loading model"
+                  : busy >= 0
+                    ? `running ${Math.round(busy * 100)}%`
+                    : last.current
+                      ? "neural"
+                      : "waiting"}
             </span>
           </div>
           <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-1 font-mono text-sm">

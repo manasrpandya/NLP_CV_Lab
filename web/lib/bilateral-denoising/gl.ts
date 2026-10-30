@@ -81,9 +81,12 @@ uniform float alpha;
 uniform vec2 size;
 uniform float px;
 vec3 cmap(float t) {
-  // cheap inferno-like ramp
+  // viridis, polynomial fit
   t = clamp(t, 0.0, 1.0);
-  return clamp(vec3(1.6 * t - 0.1, 1.9 * t * t - 0.25, 0.25 + 0.9 * sin(3.14159 * t) - 0.5 * t), 0.0, 1.0);
+  vec3 c0 = vec3(0.2777, 0.0054, 0.3341), c1 = vec3(0.1050, 1.4046, 1.3846), c2 = vec3(-0.3309, 0.2148, 0.0951);
+  vec3 c3 = vec3(-4.6342, -5.7991, -19.3324), c4 = vec3(6.2283, 14.1799, 56.6906), c5 = vec3(4.7764, -13.7451, -65.3530);
+  vec3 c6 = vec3(-5.4355, 4.6459, 26.3124);
+  return c0 + t * (c1 + t * (c2 + t * (c3 + t * (c4 + t * (c5 + t * c6)))));
 }
 void main() {
   vec2 uv = vec2(gl_FragCoord.x / size.x, 1.0 - gl_FragCoord.y / size.y);

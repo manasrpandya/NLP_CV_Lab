@@ -10,6 +10,14 @@ const sets = [
 ] as const;
 const sigs = [15, 25, 50];
 const plotKeys = ["bf_oracle", "bf_joint", "nbf", "bm3d", "dncnn"];
+// stroke class + dash per plotted method
+const sty: Record<string, [string, string | undefined, string]> = {
+  bf_oracle: ["stroke-ink", undefined, "border-ink border-solid"],
+  bf_joint: ["stroke-ink", "1.5 2.5", "border-ink border-dotted"],
+  nbf: ["stroke-acc", undefined, "border-acc border-solid"],
+  bm3d: ["stroke-mute", "5 3", "border-mute border-dashed"],
+  dncnn: ["stroke-mute", "1.5 2.5", "border-mute border-dotted"],
+};
 
 type row = (typeof res.rows)[number];
 const get = (r: row, k: string) => (r.psnr as Record<string, number | undefined>)[k];
@@ -43,7 +51,6 @@ function Plot({ ds }: { ds: string }) {
       ))}
       {rows.map((r) => {
         const ours = r.key === "nbf";
-        const cls = ours ? "stroke-acc" : r.group === "e" ? "stroke-mute" : "stroke-ink";
         const pts = sigs.map((s) => [px(s), py(get(r, `${ds}/${s}`) ?? lo)]);
         return (
           <g key={r.key}>
@@ -51,16 +58,30 @@ function Plot({ ds }: { ds: string }) {
               points={pts.map((p) => p.join(",")).join(" ")}
               fill="none"
               strokeWidth={ours ? 2.2 : 1.2}
-              strokeDasharray={r.group === "e" ? "4 3" : undefined}
-              className={cls}
+              strokeDasharray={sty[r.key][1]}
+              className={sty[r.key][0]}
             />
-            <text x={pts[2][0] - 4} y={pts[2][1] - 4} textAnchor="end" className={`font-mono text-[8.5px] ${ours ? "fill-acc" : "fill-mute"}`}>
-              {r.key}
-            </text>
           </g>
         );
       })}
     </svg>
+  );
+}
+
+function Legend() {
+  return (
+    <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-mute">
+      {res.rows
+        .filter((r) => plotKeys.includes(r.key))
+        .map((r) => (
+          <li key={r.key} className="flex items-center gap-1.5">
+            <span
+              className={`inline-block w-5 border-t-2 ${sty[r.key][2]}`}
+            />
+            {r.label}
+          </li>
+        ))}
+    </ul>
   );
 }
 
@@ -80,7 +101,7 @@ export function Results() {
           </button>
         ))}
       </div>
-      <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_auto]">
+      <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] text-sm">
             <thead>
@@ -111,7 +132,10 @@ export function Results() {
             </tbody>
           </table>
         </div>
-        <Plot ds={ds} />
+        <div>
+          <Plot ds={ds} />
+          <Legend />
+        </div>
       </div>
     </section>
   );

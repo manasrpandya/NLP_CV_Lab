@@ -10,7 +10,10 @@ from labcore import dump, load  # noqa: E402
 
 from bden import classic, data, zoo  # noqa: E402
 from bden.est import immerkaer, wavelet  # noqa: E402
-from bden.evaluate import cpu_fn  # noqa: E402
+from bden.evaluate import (
+    cpu_fn,  # noqa: E402
+    load_eval,
+)
 from bden.metrics import psnr  # noqa: E402
 
 here = Path(__file__).resolve().parents[2]
@@ -35,7 +38,7 @@ def nbf_run(y, name="nbf"):
 
 
 def psnr_vs_sigma():
-    ev = load(res / "eval.json")
+    ev = load_eval()
     keys = [
         ("bf_oracle", "bilateral (a)"),
         ("bf_iter", "iterated (c)"),

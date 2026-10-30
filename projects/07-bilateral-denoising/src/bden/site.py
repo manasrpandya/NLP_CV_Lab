@@ -2,6 +2,8 @@ from pathlib import Path
 
 from labcore import dump, load
 
+from bden.evaluate import load_eval
+
 # compact results for the demo page (web/ can't read files outside its root on vercel)
 
 here = Path(__file__).resolve().parents[2]
@@ -23,7 +25,7 @@ labels = {
 
 def main():
     fit = load(here / "results" / "auto_fit.json")
-    ev = load(here / "results" / "eval.json")
+    ev = load_eval()
     rows = []
     for k, (lbl, grp) in labels.items():
         if k not in ev:
