@@ -93,7 +93,7 @@ def main():
     Path("report/tables/ekman_head.tex").write_text(head + "\n")
 
     dep = m["student-int8"] if "student-int8" in m else m["student-kd"]
-    keys = ["label", "macro_f1", "micro_f1", "ekman_macro_f1", "ood_acc", "ece_raw", "ece_cal"]
+    keys = ["label", "macro_f1", "macro_f1_ci", "micro_f1", "ekman_macro_f1", "ood_acc", "ece_raw", "ece_cal"]
     rows = [{"k": k, **{x: m[k][x] for x in keys}, "mb": mb(k, b)} for k in order if k in m]
     dump(
         {"temp": round(dep["temp"], 4), "th": dep["th"], "rows": [{**r, "mb": r["mb"] or 0} for r in rows]},

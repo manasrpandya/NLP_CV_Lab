@@ -29,7 +29,7 @@ export function Explain({ o, sel, pick, top }: { o: occ; sel: number; pick: (i: 
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-mute">explain</span>
+        <span className="text-mute">show words for</span>
         {top.map((i) => (
           <button
             key={i}
@@ -61,8 +61,8 @@ export function Explain({ o, sel, pick, top }: { o: occ; sel: number; pick: (i: 
         })}
       </p>
       <p className="mt-2 text-xs text-mute">
-        shading = how much the evidence for {names[sel]} (log-odds) drops when that word is removed. dotted words push it up
-        when removed (they argue against it).
+        darker = that word matters more for {names[sel]}. dotted words speak against it. pick another emotion
+        above to see its words.
       </p>
     </div>
   );
