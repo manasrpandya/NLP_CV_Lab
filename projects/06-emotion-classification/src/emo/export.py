@@ -91,12 +91,13 @@ tags: [onnx, emotion, multi-label, goemotions]
 # goemotions-distil-onnx
 
 distilroberta-base fine-tuned on GoEmotions (27 emotions + neutral, multi-label) with knowledge distillation
-from a roberta-large teacher ensemble ([manasrpandya/goemotions-teacher](https://huggingface.co/manasrpandya/goemotions-teacher)).
+from two roberta-large teachers ([bce](https://huggingface.co/manasrpandya/goemotions-teacher),
+[asl](https://huggingface.co/manasrpandya/goemotions-teacher-asl)).
 exported to ONNX for transformers.js. `onnx/model_quantized.onnx` is int8 dynamic quantization
 ({res["parity"]["int8"]["mb"]:.0f} mb), `onnx/model_fp16.onnx` is for webgpu, `onnx/model.onnx` is fp32.
 
 test set (int8 model, per-label thresholds tuned on validation): macro-f1 {r["macro_f1"]:.3f}, micro-f1
-{r["micro_f1"]:.3f}, ekman macro-f1 {r["ekman_macro_f1"]:.3f}.
+{r["micro_f1"]:.3f}, ekman macro-f1 {r["ekman_macro_f1"]:.3f}. cpu latency about 9 ms per sentence.
 
 the outputs are logits, use sigmoid(logits / {r["temp"]:.3f}) for calibrated probabilities. the tuned
 thresholds are in `calib.json`. live demo: https://nlp-cv-lab.vercel.app/p/emotion-classification,
