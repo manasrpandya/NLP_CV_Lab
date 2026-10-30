@@ -29,6 +29,19 @@ sets to ekman groups.
 | roberta-large ens. | 0.547 | 0.616 | 0.659 | 0.624 | 0.0281 / 0.0260 |  |
 <!-- /res -->
 
+the original GoEmotions paper's BERT-base gets 0.46 macro-f1 (0.64 on ekman). the main things i found:
+
+- every transformer lands at 0.52-0.55 macro-f1, and the 95% bootstrap intervals are about +-0.02 wide, so
+  teacher vs student and bce vs asl are within noise. distillation is the one change that clearly helps the
+  small model (+0.014 macro-f1 over hard labels, paired bootstrap ci [+0.002, +0.026]).
+- the deployed int8 model is 79 mb, 17x smaller and 45x faster on cpu than one roberta-large (8.6 vs 392 ms
+  per sentence), and quantization costs 0.001 macro-f1 with fixed thresholds.
+- per-label thresholds matter more than any model change, but plain argmax tuning is unstable for rare labels
+  (grief has 13 val positives). smoothing the f1-vs-threshold curve fixed most of that.
+- the asl teacher is badly under-confident (ece 0.21, fitted temperature 0.32). averaging its raw logits into
+  the kd targets made the student under-confident too.
+- zero-shot on tweets the transformers get the main ekman emotion right 62-63% of the time, tf-idf only 45%.
+
 ## layout
 
 ```

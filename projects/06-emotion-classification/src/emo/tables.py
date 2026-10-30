@@ -15,6 +15,17 @@ order = [
     "teacher-asl",
     "teacher-ens",
 ]
+# report uses normal capitalisation, the readme and site keep the lowercase labels
+cap = {
+    "tfidf": "TF-IDF + LogReg",
+    "bigru": "BiGRU + GloVe",
+    "student-hard": "DistilRoBERTa (hard labels)",
+    "student-kd": "DistilRoBERTa + KD",
+    "student-int8": "DistilRoBERTa + KD, int8 ONNX",
+    "teacher-bce": "RoBERTa-large (BCE)",
+    "teacher-asl": "RoBERTa-large (ASL)",
+    "teacher-ens": "RoBERTa-large ensemble",
+}
 site = Path("../../web/lib/emotion-classification/data.json")
 
 
@@ -50,7 +61,7 @@ def tex(m, b):
         f = f"{r['macro_f1']:.3f}"
         f = rf"\textbf{{{f}}}" if r["macro_f1"] == best else f
         ls.append(
-            f"{r['label']} & {f} & {r['micro_f1']:.3f} & {r['macro_f1_at_05']:.3f} & "
+            f"{cap[k]} & {f} & {r['micro_f1']:.3f} & {r['macro_f1_at_05']:.3f} & "
             f"{r['ekman_macro_f1']:.3f} & {r['ood_acc']:.3f} & {r['ood_macro_f1']:.3f} & "
             f"{f'{s:.0f}' if s else '--'} \\\\"
         )
@@ -59,7 +70,7 @@ def tex(m, b):
 
 def tex_ece(m):
     return "".join(
-        f"{m[k]['label']} & {m[k]['temp']:.2f} & {m[k]['ece_raw']:.4f} & {m[k]['ece_cal']:.4f} & "
+        f"{cap[k]} & {m[k]['temp']:.2f} & {m[k]['ece_raw']:.4f} & {m[k]['ece_cal']:.4f} & "
         f"{m[k]['ece_pos_raw']:.4f} & {m[k]['ece_pos_cal']:.4f} \\\\\n"
         for k in order
         if k in m
@@ -68,9 +79,10 @@ def tex_ece(m):
 
 def tex_ekman(m):
     ks = [k for k in ["tfidf", "student-int8", "teacher-ens"] if k in m]
-    head = " & ".join(m[k]["label"] for k in ks)
+    head = " & ".join(cap[k] for k in ks)
     rows = "".join(
-        f"{g} & " + " & ".join(f"{m[k]['ekman_f1'][g]:.3f}" for k in ks) + " \\\\\n" for g in ek_names
+        f"{g.capitalize()} & " + " & ".join(f"{m[k]['ekman_f1'][g]:.3f}" for k in ks) + " \\\\\n"
+        for g in ek_names
     )
     return head, rows
 

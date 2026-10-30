@@ -62,7 +62,7 @@ export const projs: proj[] = [
     title: "text emotion classification",
     area: "nlp",
     blurb: "28-way multi-label emotions, running in your browser.",
-    status: "wip",
+    status: "live",
   },
 
   {

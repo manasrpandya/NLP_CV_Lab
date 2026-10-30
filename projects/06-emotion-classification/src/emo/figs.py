@@ -9,6 +9,7 @@ from labcore import load  # noqa: E402
 
 from emo import data, metrics  # noqa: E402
 from emo.labels import names, nl  # noqa: E402
+from emo.tables import cap  # noqa: E402
 
 out = Path("report/figs")
 # fixed categorical order, one colour per model family
@@ -30,9 +31,9 @@ def per_label(m):
     h = 0.8 / len(ks)
     for j, (k, c) in enumerate(ks):
         ax.barh(y + (j - (len(ks) - 1) / 2) * h, [m[k]["per_label_f1"][n] for n in order], h * 0.9,
-                color=col[c], label=m[k]["label"])  # fmt: skip
-    ax.set_yticks(y, order)
-    ax.set_xlabel("test f1")
+                color=col[c], label=cap[k])  # fmt: skip
+    ax.set_yticks(y, [n.capitalize() for n in order])
+    ax.set_xlabel("Test F1")
     ax.set_xlim(0, 1)
     ax.grid(axis="y", visible=False)
     ax.legend(loc="lower right")
@@ -43,17 +44,17 @@ def per_label(m):
 def reliability(z, ge, t):
     yt = ge["test"][1]
     fig, axs = plt.subplots(1, 2, figsize=(7, 3.2), sharey=True)
-    for ax, tt, ttl in [(axs[0], 1.0, "raw"), (axs[1], t, f"temperature scaled (t={t:.2f})")]:
+    for ax, tt, ttl in [(axs[0], 1.0, "Raw"), (axs[1], t, f"Temperature scaled (T = {t:.2f})")]:
         p = metrics.sig(z["test"] / tt)
         conf, acc, n = metrics.rel_bins(p, yt)
         m = n > 50
         ax.plot([0, 1], [0, 1], color="#9a958a", lw=1, ls="--")
         ax.plot(conf[m], acc[m], marker="o", ms=4, lw=2, color=col["student"])
-        ax.set_title(f"{ttl}, ece {metrics.ece(p, yt):.4f}", fontsize=9)
-        ax.set_xlabel("predicted probability")
+        ax.set_title(f"{ttl}, ECE {metrics.ece(p, yt):.4f}", fontsize=9)
+        ax.set_xlabel("Predicted probability")
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-    axs[0].set_ylabel("fraction positive")
+    axs[0].set_ylabel("Fraction positive")
     fig.savefig(out / "reliability.png")
     plt.close(fig)
 
@@ -67,12 +68,12 @@ def cooc(z, ge, th, t):
     np.fill_diagonal(co, np.nan)
     fig, axs = plt.subplots(1, 2, figsize=(12, 5.6))
     for ax, mat, ttl in [
-        (axs[0], co, "gold co-occurrence  p(col | row)"),
-        (axs[1], conf, "student: p(pred col | gold row)"),
+        (axs[0], co, "Gold co-occurrence, P(column | row)"),
+        (axs[1], conf, "Student, P(predicted column | gold row)"),
     ]:
         im = ax.imshow(mat, cmap="Blues", vmin=0, vmax=1)
-        ax.set_xticks(range(nl), names, rotation=90, fontsize=6.5)
-        ax.set_yticks(range(nl), names, fontsize=6.5)
+        ax.set_xticks(range(nl), [n.capitalize() for n in names], rotation=90, fontsize=6.5)
+        ax.set_yticks(range(nl), [n.capitalize() for n in names], fontsize=6.5)
         ax.grid(False)
         ax.set_title(ttl, fontsize=9)
     fig.colorbar(im, ax=axs, shrink=0.7)
@@ -82,9 +83,9 @@ def cooc(z, ge, th, t):
 
 def tradeoff(m, b):
     pts = [
-        ("roberta-large", "teacher", "teacher-bce", "teacher"),
-        ("distilroberta + kd", "student", "student-kd", "student"),
-        ("int8 onnx", "onnx-int8", "student-int8", "int8"),
+        ("RoBERTa-large", "teacher", "teacher-bce", "teacher"),
+        ("DistilRoBERTa + KD", "student", "student-kd", "student"),
+        ("Int8 ONNX", "onnx-int8", "student-int8", "int8"),
     ]
     fig, axs = plt.subplots(1, 2, figsize=(7.5, 3), sharey=True)
     for lbl, bk, mk, c in pts:
@@ -96,9 +97,9 @@ def tradeoff(m, b):
         ax.set_xscale("log")
         ax.set_xlim(ax.get_xlim()[0] / 1.6, ax.get_xlim()[1] * 1.6)
     axs[0].set_ylim(0.48, 0.6)
-    axs[0].set_xlabel("weights on disk (mb, log)")
-    axs[1].set_xlabel(f"cpu latency per sentence (ms, {b['threads']} threads, log)")
-    axs[0].set_ylabel("test macro-f1 (95% bootstrap ci)")
+    axs[0].set_xlabel("Weights on disk (MB, log)")
+    axs[1].set_xlabel(f"CPU latency per sentence (ms, {b['threads']} threads, log)")
+    axs[0].set_ylabel("Test macro-F1 (95% bootstrap CI)")
     fig.savefig(out / "tradeoff.png")
     plt.close(fig)
 
@@ -112,9 +113,9 @@ def curves(runs):
             continue
         e = load(p)["ep"]
         ax.plot([d["ep"] + 1 for d in e], [d["val_macro_f1"] for d in e], marker="o", ms=3, color=col[c],
-                ls="--" if k in ("teacher-asl", "student-hard") else "-", label=k)  # fmt: skip
-    ax.set_xlabel("epoch")
-    ax.set_ylabel("val macro-f1")
+                ls="--" if k in ("teacher-asl", "student-hard") else "-", label=cap[k])  # fmt: skip
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Validation macro-F1")
     ax.legend(fontsize=7)
     fig.savefig(out / "curves.png")
     plt.close(fig)
