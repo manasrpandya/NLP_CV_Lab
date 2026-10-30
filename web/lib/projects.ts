@@ -71,7 +71,7 @@ export const projs: proj[] = [
     title: "bilateral image denoising",
     area: "cv",
     blurb: "classic and learned bilateral filters, live on the gpu.",
-    status: "wip",
+    status: "live",
   },
 
   {

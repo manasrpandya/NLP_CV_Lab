@@ -13,7 +13,7 @@ model is exported to onnx so it runs directly in the browser on the demo site.
 | 04 | question answering | todo | | |
 | 05 | grammar error correction | todo | | |
 | 06 | text emotion classification | wip | | |
-| 07 | bilateral image denoising | wip | | |
+| 07 | bilateral image denoising | live | [pdf](projects/07-bilateral-denoising/report/report.pdf) | [demo](https://nlp-cv-lab.vercel.app/p/bilateral-denoising) |
 | 08 | eye detection & facial landmarks | todo | | |
 | 09 | human activity recognition | todo | | |
 | 10 | vehicle detection & counting | todo | | |
