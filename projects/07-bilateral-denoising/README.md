@@ -5,8 +5,8 @@ pick its own parameters from a blind noise estimate, and then train a tiny netwo
 bilateral parameters per pixel ("neural-guided bilateral", nbf). everything is compared against NLM, BM3D
 and a pretrained DnCNN so it's clear where bilateral filtering stands.
 
-- live demo: https://nlp-cv-lab.vercel.app/p/bilateral-denoising (webgl bilateral in real time on your
-  webcam or an image, auto mode, and the nbf model running in the browser with onnx runtime)
+- live demo: https://nlp-cv-lab.vercel.app/p/bilateral-denoising (webgl bilateral that re-filters as you
+  move the sliders, auto mode, and the nbf model running in the browser with onnx runtime)
 - model: https://huggingface.co/manasrpandya/bilateral-denoise-nbf (onnx, 462 kB)
 - report: [report/report.pdf](report/report.pdf)
 - code: https://github.com/manasrpandya/NLP_CV_Lab/tree/main/projects/07-bilateral-denoising
