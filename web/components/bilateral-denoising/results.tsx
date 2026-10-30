@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import res from "@/lib/bilateral-denoising/results.json";
+import { More, Tip } from "./tip";
 
 const sets = [
   ["set12", "Set12"],
@@ -85,14 +86,14 @@ function Legend() {
   );
 }
 
-export function Results() {
+function Full() {
   const [ds, setDs] = useState<string>("bsd68");
   return (
-    <section className="mt-16">
-      <h2 className="font-serif text-3xl tracking-tight">results</h2>
-      <p className="mt-2 max-w-2xl text-sm text-mute">
+    <div>
+      <p className="max-w-2xl">
         PSNR in dB on grayscale test sets with gaussian noise (fixed seed), and on 320 real-noise crops from the SIDD
-        validation set. methods (a)-(d) are bilateral variants, (e) are reference denoisers for context.
+        validation set. (a)-(d) are bilateral variants, (e) are reference denoisers. the last three (d) rows are
+        ablations of the network.
       </p>
       <div className="mt-4 inline-flex overflow-hidden rounded-md border border-line text-sm">
         {sets.map(([k, l]) => (
@@ -136,6 +137,85 @@ export function Results() {
           <Plot ds={ds} />
           <Legend />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// short names for the summary bars
+const plain: [string, string][] = [
+  ["noisy", "noisy photo"],
+  ["bf_oracle", "classic, hand-tuned"],
+  ["bf_auto", "classic, auto"],
+  ["nbf", "neural (this page)"],
+  ["bm3d", "BM3D"],
+  ["dncnn", "DnCNN"],
+];
+
+const refNote: Record<string, string> = {
+  bf_oracle: "the best fixed settings, found by trying every combination. it is told the true noise level.",
+  bm3d: "a well-known non-neural denoiser from 2007, a common yardstick. slow (about 5 s per image here).",
+  dncnn: "a standard denoising network with 7 times more weights and no bilateral structure, for reference.",
+};
+
+function Bars({ real }: { real: boolean }) {
+  const k = real ? "sidd/0" : "bsd68/25";
+  const rows = plain.map(([key, name]) => ({ key, name, v: get(res.rows.find((r) => r.key === key)!, k) ?? 0 }));
+  const lo = real ? 25 : 18;
+  const hi = real ? 34 : 30;
+  return (
+    <ul className="space-y-2">
+      {rows.map((r) => (
+        <li key={r.key} className="grid grid-cols-[9.5rem_1fr] items-center gap-3 text-sm sm:grid-cols-[11rem_1fr]">
+          <span className={`flex items-center gap-1.5 ${r.key === "nbf" ? "font-medium text-acc" : ""}`}>
+            {r.name}
+            {refNote[r.key] && <Tip label={`about ${r.name}`}>{refNote[r.key]}</Tip>}
+          </span>
+          <span className="flex items-center gap-2">
+            <span
+              className={`h-4 rounded-sm transition-all duration-500 ${r.key === "nbf" ? "bg-acc" : r.key === "noisy" ? "bg-line" : "bg-mute/50"}`}
+              style={{ width: `${Math.max(2, ((r.v - lo) / (hi - lo)) * 100)}%` }}
+            />
+            <span className="font-mono text-xs">{r.v.toFixed(1)}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function Results() {
+  const [real, setReal] = useState(false);
+  return (
+    <section className="mt-16">
+      <h2 className="font-serif text-3xl tracking-tight">how well does it work?</h2>
+      <p className="mt-2 max-w-2xl text-sm text-mute">
+        average quality score (PSNR, higher is better) on standard test photos.
+      </p>
+      <div className="mt-4 inline-flex overflow-hidden rounded-md border border-line text-sm">
+        {(
+          [
+            [false, "added noise"],
+            [true, "real camera noise"],
+          ] as const
+        ).map(([k, l]) => (
+          <button key={l} onClick={() => setReal(k)} className={`px-3 py-1.5 ${real === k ? "bg-ink text-bg" : "bg-card"}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <div className="mt-5 max-w-2xl">
+        <Bars real={real} />
+      </div>
+      <p className="mt-4 max-w-2xl text-sm">
+        {real
+          ? "on real phone photos (SIDD) the ranking flips: the classic filters win, because the network only ever saw artificial grain while training, and real camera noise looks different."
+          : "the neural version beats every classic setting by about 1.4 dB and comes close to BM3D, while staying a filter that only averages nearby pixels. a bigger plain network (DnCNN) is still better."}
+      </p>
+      <div className="mt-6 max-w-5xl border-t border-line">
+        <More title="full results table and plot">
+          <Full />
+        </More>
       </div>
     </section>
   );
