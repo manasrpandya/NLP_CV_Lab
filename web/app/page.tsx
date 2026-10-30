@@ -3,8 +3,8 @@ import { projs, pad, type st } from "@/lib/projects";
 import { repo } from "@/components/shell";
 
 const tag: Record<st, string> = {
-  live: "text-acc",
-  wip: "text-mute",
+  live: "rounded-sm bg-acc px-1.5 py-0.5 font-medium text-bg",
+  wip: "rounded-sm border border-line px-1.5 py-0.5 text-mute",
   todo: "text-mute/60",
 };
 
@@ -25,15 +25,21 @@ export default function Home() {
       <ul className="mt-10 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
         {projs.map((p) => {
           const body = (
-            <div className="flex h-full flex-col bg-card p-5">
-              <div className="flex items-baseline justify-between font-mono text-xs">
+            <div
+              className={`flex h-full flex-col p-5 ${p.status === "live" ? "bg-[color-mix(in_srgb,var(--acc)_9%,var(--card))] shadow-[inset_0_3px_0_var(--acc)]" : "bg-card"}`}
+            >
+              <div className="flex items-center justify-between font-mono text-xs">
                 <span className="text-mute">
                   {pad(p.n)} / {p.area}
                 </span>
-                <span className={tag[p.status]}>{p.status}</span>
+                <span className={`flex items-center gap-1.5 ${tag[p.status]}`}>
+                  {p.status === "live" && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
+                  {p.status}
+                </span>
               </div>
               <h2 className="mt-3 text-lg font-medium leading-snug">{p.title}</h2>
               <p className="mt-1 text-sm text-mute">{p.blurb}</p>
+              {p.status === "live" && <p className="mt-auto pt-4 text-sm text-acc">try the demo &rarr;</p>}
             </div>
           );
           return (
