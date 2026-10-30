@@ -50,8 +50,9 @@ def tex(m, b):
         f = f"{r['macro_f1']:.3f}"
         f = rf"\textbf{{{f}}}" if r["macro_f1"] == best else f
         ls.append(
-            f"{r['label']} & {f} & {r['micro_f1']:.3f} & {r['macro_f1_at_05']:.3f} & {r['ekman_macro_f1']:.3f} & "
-            f"{r['ood_acc']:.3f} & {r['ood_macro_f1']:.3f} & {f'{s:.0f}' if s else '--'} \\\\"
+            f"{r['label']} & {f} & {r['micro_f1']:.3f} & {r['macro_f1_at_05']:.3f} & "
+            f"{r['ekman_macro_f1']:.3f} & {r['ood_acc']:.3f} & {r['ood_macro_f1']:.3f} & "
+            f"{f'{s:.0f}' if s else '--'} \\\\"
         )
     return "\n".join(ls) + "\n"
 
