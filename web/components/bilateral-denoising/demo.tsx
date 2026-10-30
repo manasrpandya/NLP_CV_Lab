@@ -105,7 +105,7 @@ export function Demo() {
   const wk = useRef<Worker | null>(null);
 
   const [src, setSrc] = useState<string>("houses");
-  const [mode, setMode] = useState<mode>("auto");
+  const [mode, setMode] = useState<mode>("neural");
   const [sig, setSig] = useState(60);
   const [r, setR] = useState(3);
   const [ss, setSs] = useState(1.6);
@@ -425,8 +425,16 @@ export function Demo() {
               &lsaquo;&rsaquo;
             </span>
             {working && (
+              // centred on the "cleaned" side, which is where the result will appear
+              <span
+                className="pointer-events-none absolute top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 sm:h-20 sm:w-20"
+                style={{ left: `${((split + 1) / 2) * 100}%` }}
+              >
+                <span className="h-10 w-10 animate-spin rounded-full border-4 border-white/25 border-t-white sm:h-12 sm:w-12" />
+              </span>
+            )}
+            {working && (
               <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-2 bg-black/65 px-3 py-2 text-xs text-white">
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 {working}
                 {nn.st === "loading" && <span className="text-white/70">(460 kB, only the first time)</span>}
               </span>
