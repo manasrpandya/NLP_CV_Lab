@@ -56,6 +56,12 @@ def score(z, ge, yd):
     }
 
 
+def ens(zs, yv, splits=("val", "test", "dair")):
+    # the asl teacher's logits live on a different scale (t ~ 0.3), so calibrate each one before averaging
+    ts = [metrics.fit_temp(z["val"], yv) for z in zs]
+    return {s: np.mean([z[s] / t for z, t in zip(zs, ts)], 0) for s in splits if all(s in z for z in zs)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", default="runs")
@@ -69,9 +75,7 @@ def main():
         if p.exists():
             zs[k] = dict(np.load(p))
     if "teacher-bce" in zs and "teacher-asl" in zs:
-        zs["teacher-ens"] = {
-            s: (zs["teacher-bce"][s] + zs["teacher-asl"][s]) / 2 for s in ["val", "test", "dair"]
-        }
+        zs["teacher-ens"] = ens([zs["teacher-bce"], zs["teacher-asl"]], ge["validation"][1])
     res = {}
     for k, z in zs.items():
         res[k] = {"label": rows[k], **score(z, ge, yd)}
