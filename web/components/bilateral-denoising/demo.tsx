@@ -3,15 +3,36 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bgl } from "@/lib/bilateral-denoising/gl";
 import { autoParams, chan, estSigma, psnr } from "@/lib/bilateral-denoising/est";
+import { Tip } from "./tip";
 
 const samples = ["parrots", "lighthouse", "houses", "monarch"];
 const maxSide = 768;
-const camSide = 640;
 
 type mode = "manual" | "auto" | "neural";
 type heat = "none" | "sr" | "ss" | "guide";
 // channel order of the onnx "maps" output: sig_s1, sig_s2, sig_r1, sig_r2, guide
 const heatIdx: Record<Exclude<heat, "none">, number> = { ss: 0, sr: 2, guide: 4 };
+
+const modes: { k: mode; name: string; sub: string; best?: boolean }[] = [
+  { k: "manual", name: "hand-tuned", sub: "classic filter, you set it" },
+  { k: "auto", name: "auto", sub: "classic filter, sets itself" },
+  { k: "neural", name: "neural", sub: "best quality, takes a few seconds", best: true },
+];
+
+const about: Record<mode, string> = {
+  manual: "the classic bilateral filter: it blurs noise but stops at edges. move the sliders and watch it change.",
+  auto: "same classic filter, but it first measures how noisy the photo is and picks the settings for you.",
+  neural:
+    "a tiny neural network picks the filter settings separately for every pixel, so flat sky and sharp edges get different treatment.",
+};
+
+const heatNote: Record<Exclude<heat, "none">, string> = {
+  sr: "bright = smooths across bigger brightness jumps (flat areas), dark = protects edges and texture.",
+  ss: "bright = averages over a wider area, dark = stays local.",
+  guide: "the image the network uses to decide what counts as an edge. it is a cleaned-up, contrast-boosted copy.",
+};
+
+const heatName: Record<Exclude<heat, "none">, string> = { sr: "edge threshold", ss: "blur distance", guide: "guide" };
 
 type nnRes = { key: string; rgba: Uint8Array; maps: Float32Array; ms: number };
 
@@ -24,15 +45,20 @@ function Slider(p: {
   on: (v: number) => void;
   off?: boolean;
   fmt?: (v: number) => string;
+  tip?: React.ReactNode;
 }) {
   return (
-    <label className={`block ${p.off ? "opacity-50" : ""}`}>
-      <span className="flex justify-between text-xs">
-        <span className="text-mute">{p.label}</span>
+    <div className={p.off ? "opacity-50" : ""}>
+      <span className="flex items-center justify-between gap-2 text-xs">
+        <span className="flex items-center gap-1.5 text-mute">
+          {p.label}
+          {p.tip && <Tip label={`about ${p.label}`}>{p.tip}</Tip>}
+        </span>
         <span className="font-mono">{p.fmt ? p.fmt(p.v) : p.v}</span>
       </span>
       <input
         type="range"
+        aria-label={p.label}
         className="mt-1 w-full accent-[var(--acc)]"
         min={p.min}
         max={p.max}
@@ -41,18 +67,18 @@ function Slider(p: {
         disabled={p.off}
         onChange={(e) => p.on(Number(e.target.value))}
       />
-    </label>
+    </div>
   );
 }
 
 function Seg<T extends string>(p: { opts: [T, string][]; v: T; on: (v: T) => void }) {
   return (
-    <div className="inline-flex overflow-hidden rounded-md border border-line text-sm">
+    <div className="inline-flex flex-wrap overflow-hidden rounded-md border border-line text-xs">
       {p.opts.map(([k, l]) => (
         <button
           key={k}
           onClick={() => p.on(k)}
-          className={`px-3 py-1.5 ${p.v === k ? "bg-ink text-bg" : "bg-card hover:bg-line/50"}`}
+          className={`px-2.5 py-1.5 ${p.v === k ? "bg-ink text-bg" : "bg-card hover:bg-line/50"}`}
         >
           {l}
         </button>
@@ -61,15 +87,25 @@ function Seg<T extends string>(p: { opts: [T, string][]; v: T; on: (v: T) => voi
   );
 }
 
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <p className="mb-2 flex items-center gap-2 text-sm">
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink font-mono text-[11px] text-bg">
+        {n}
+      </span>
+      {children}
+    </p>
+  );
+}
+
 export function Demo() {
   const cv = useRef<HTMLCanvasElement>(null);
   const work = useRef<HTMLCanvasElement | null>(null);
-  const vid = useRef<HTMLVideoElement | null>(null);
   const g = useRef<bgl | null>(null);
   const wk = useRef<Worker | null>(null);
 
   const [src, setSrc] = useState<string>("parrots");
-  const [mode, setMode] = useState<mode>("manual");
+  const [mode, setMode] = useState<mode>("auto");
   const [sig, setSig] = useState(25);
   const [r, setR] = useState(3);
   const [ss, setSs] = useState(1.6);
@@ -88,16 +124,18 @@ export function Demo() {
   });
   const [busy, setBusy] = useState(-1);
   const [heatRange, setHeatRange] = useState<[number, number]>([0, 0]);
+  const [hasNN, setHasNN] = useState(false);
 
-  // mirror of everything the render loop needs, so the camera loop never sees stale state
-  const st = useRef({ src, mode, sig, r, ss, sr, passes, split, heat, left, imgId: 0, frame: 0 });
+  // mirror of the controls for the draw callback
+  const st = useRef({ src, mode, sig, r, ss, sr, passes, split, heat, left, imgId: 0 });
   st.current = { ...st.current, src, mode, sig, r, ss, sr, passes, split, heat, left };
   const last = useRef<nnRes | null>(null);
   const inflight = useRef<string | null>(null);
   const estKey = useRef("");
   const estVal = useRef(NaN);
+  const nnReady = useRef(false);
 
-  const key = () => `${st.current.imgId}|${st.current.sig}|${st.current.src === "cam" ? st.current.frame : 0}`;
+  const key = () => `${st.current.imgId}|${st.current.sig}`;
 
   const pushHeat = useCallback(() => {
     const G = g.current;
@@ -119,17 +157,10 @@ export function Demo() {
     const G = g.current;
     const s = st.current;
     if (!G || !G.w) return;
-    const cam = s.src === "cam";
-    if (cam && vid.current && work.current && vid.current.readyState >= 2) {
-      work.current.getContext("2d")!.drawImage(vid.current, 0, 0, G.w, G.h);
-      G.upload(work.current);
-      s.frame++;
-    }
-    G.prep(s.sig / 255, cam ? s.frame : 7);
+    G.prep(s.sig / 255, 7);
     const k = key();
 
-    // blind noise estimate for auto mode (every frame would be wasteful on video)
-    if (s.mode === "auto" && (estKey.current !== k || isNaN(estVal.current)) && (!cam || s.frame % 20 === 1)) {
+    if (s.mode === "auto" && (estKey.current !== k || isNaN(estVal.current))) {
       estKey.current = k;
       const px = G.read("noisy");
       estVal.current = [0, 1, 2].reduce((a, c) => a + estSigma(chan(px, G.w, G.h, c), G.w, G.h), 0) / 3;
@@ -140,8 +171,10 @@ export function Demo() {
       q = { ...q, r: a.r, ss: a.ss, sr: a.sr / 255, passes: 1 };
     }
 
+    let raw = false;
     if (s.mode === "neural") {
-      if (wk.current && nnReady.current && inflight.current === null && last.current?.key !== k) {
+      const fresh = last.current?.key === k;
+      if (wk.current && nnReady.current && inflight.current === null && !fresh) {
         const px = G.read("noisy");
         const n = G.w * G.h;
         const x = new Float32Array(3 * n);
@@ -150,30 +183,26 @@ export function Demo() {
         setBusy(0);
         wk.current.postMessage({ type: "run", id: k, x, w: G.w, h: G.h }, [x.buffer]);
       }
-      if (last.current && last.current.rgba.length === G.w * G.h * 4) G.useNN = true;
+      G.useNN = fresh;
+      raw = !fresh;
+      setHasNN(fresh);
     } else {
       G.useNN = false;
       G.filter(q);
     }
-    G.show(s.split, s.mode === "neural" && s.heat !== "none" && G.useNN ? 0.85 : 0, s.left === "clean");
+    G.show(s.split, s.mode === "neural" && s.heat !== "none" && G.useNN ? 0.85 : 0, s.left === "clean", raw);
 
-    if (!cam || s.frame % 15 === 1) {
-      const out = G.useNN ? last.current!.rgba : G.read("out");
-      const clean = G.read("clean");
-      const ok = s.sig > 0;
-      const stale = s.mode === "neural" && !G.useNN;
-      setStats((o) => ({
-        ...o,
-        pn: ok ? psnr(clean, G.read("noisy")) : NaN,
-        po: ok && !stale ? psnr(clean, out) : NaN,
-        est: s.mode === "auto" ? estVal.current : o.est,
-      }));
-    }
+    const out = G.useNN ? last.current!.rgba : G.read("out");
+    const clean = G.read("clean");
+    const ok = s.sig > 0;
+    setStats((o) => ({
+      ...o,
+      pn: ok ? psnr(clean, G.read("noisy")) : NaN,
+      po: ok && !raw ? psnr(clean, out) : NaN,
+      est: s.mode === "auto" ? estVal.current : o.est,
+    }));
   }, []);
 
-  const nnReady = useRef(false);
-
-  // gl + worker setup
   useEffect(() => {
     try {
       g.current = new bgl(cv.current!);
@@ -181,11 +210,7 @@ export function Demo() {
       queueMicrotask(() => setErr(String(e)));
     }
     work.current = document.createElement("canvas");
-    return () => {
-      wk.current?.terminate();
-      const v = vid.current;
-      (v?.srcObject as MediaStream | null)?.getTracks().forEach((t) => t.stop());
-    };
+    return () => wk.current?.terminate();
   }, []);
 
   const loadNN = useCallback(() => {
@@ -205,41 +230,41 @@ export function Demo() {
       }
       if (m.type === "error") {
         inflight.current = null;
+        setBusy(-1);
         setNN((o) => ({ ...o, st: "error" }));
         setErr(m.msg);
       }
       if (m.type === "done") {
         const G = g.current!;
         const n = G.w * G.h;
-        const rgba = new Uint8Array(4 * n);
+        inflight.current = null;
+        setBusy(-1);
         const y = m.y as Float32Array;
+        // the image may have changed while the model ran
+        if (y.length !== 3 * n) return requestAnimationFrame(draw);
+        const rgba = new Uint8Array(4 * n);
         for (let i = 0; i < n; i++) {
           for (let c = 0; c < 3; c++) rgba[4 * i + c] = Math.max(0, Math.min(255, Math.round(y[c * n + i] * 255)));
           rgba[4 * i + 3] = 255;
         }
-        inflight.current = null;
-        setBusy(-1);
-        if (rgba.length !== n * 4) return;
         last.current = { key: m.id, rgba, maps: m.maps, ms: m.ms };
         G.setNN(rgba, null);
         pushHeat();
         setStats((o) => ({ ...o, ms: m.ms }));
-        if (st.current.src !== "cam") requestAnimationFrame(draw);
+        requestAnimationFrame(draw);
       }
     };
     // ?ep=wasm forces the cpu backend, handy for debugging
     w.postMessage({ type: "load", ep: new URLSearchParams(location.search).get("ep") ?? undefined });
   }, [draw, pushHeat]);
 
-  // load still images
   useEffect(() => {
-    if (src === "cam" || src === "upload") return;
+    if (src === "upload") return;
     let dead = false;
     const im = new Image();
     im.src = `/bilateral-denoising/${src}.webp`;
     im.decode().then(() => {
-      if (dead) return;
-      setImage(im, im.naturalWidth, im.naturalHeight);
+      if (!dead) setImage(im, im.naturalWidth, im.naturalHeight);
     });
     return () => {
       dead = true;
@@ -247,10 +272,10 @@ export function Demo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
-  function setImage(el: CanvasImageSource, w0: number, h0: number, cap = maxSide) {
+  function setImage(el: CanvasImageSource, w0: number, h0: number) {
     const G = g.current;
     if (!G || !work.current) return;
-    const k = Math.min(1, cap / Math.max(w0, h0));
+    const k = Math.min(1, maxSide / Math.max(w0, h0));
     const w = Math.round(w0 * k);
     const h = Math.round(h0 * k);
     work.current.width = w;
@@ -267,9 +292,8 @@ export function Demo() {
     requestAnimationFrame(draw);
   }
 
-  // redraw stills whenever a control changes
   useEffect(() => {
-    if (src !== "cam") requestAnimationFrame(draw);
+    requestAnimationFrame(draw);
   }, [draw, src, mode, sig, r, ss, sr, passes, split, heat, left]);
 
   useEffect(() => {
@@ -280,41 +304,10 @@ export function Demo() {
     pushHeat();
   }, [heat, pushHeat]);
 
-  // camera loop
-  useEffect(() => {
-    if (src !== "cam") return;
-    let raf = 0;
-    let stream: MediaStream | null = null;
-    const v = document.createElement("video");
-    v.playsInline = true;
-    v.muted = true;
-    vid.current = v;
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "environment", width: { ideal: 640 } } })
-      .then(async (s) => {
-        stream = s;
-        v.srcObject = s;
-        await v.play();
-        setImage(v, v.videoWidth, v.videoHeight, camSide);
-        const loop = () => {
-          draw();
-          raf = requestAnimationFrame(loop);
-        };
-        loop();
-      })
-      .catch((e) => setErr(`camera: ${e.message ?? e}`));
-    return () => {
-      cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, draw]);
-
   async function onFile(f: File | undefined) {
     if (!f) return;
     const bm = await createImageBitmap(f);
     setSrc("upload");
-    setSig(0);
     setImage(bm, bm.width, bm.height);
   }
 
@@ -343,11 +336,21 @@ export function Demo() {
   };
 
   const auto = mode === "auto" && !isNaN(stats.est) ? autoParams(stats.est) : null;
-  const off = mode !== "manual";
   const f1 = (v: number) => v.toFixed(1);
+  const working =
+    mode !== "neural"
+      ? ""
+      : nn.st === "loading"
+        ? `downloading the model ${Math.round(nn.p * 100)}%`
+        : busy >= 0
+          ? `cleaning ${Math.round(busy * 100)}%`
+          : nn.st === "ready" && !hasNN
+            ? "cleaning"
+            : "";
 
   return (
     <section>
+      <Step n={1}>pick a photo, or use your own</Step>
       <div className="flex flex-wrap items-center gap-2">
         {samples.map((s) => (
           <button
@@ -361,20 +364,46 @@ export function Demo() {
           </button>
         ))}
         <label
-          className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm ${src === "upload" ? "border-acc" : "border-line"}`}
+          className={`flex h-12 cursor-pointer items-center rounded-md border-2 border-dashed px-3 text-sm ${src === "upload" ? "border-acc" : "border-line hover:border-mute"}`}
         >
           upload
           <input type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
-        <button
-          onClick={() => setSrc("cam")}
-          className={`rounded-md border px-3 py-1.5 text-sm ${src === "cam" ? "border-acc" : "border-line"}`}
-        >
-          webcam
-        </button>
       </div>
 
-      <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="mt-6">
+        <Step n={2}>
+          pick how to clean it
+          <Tip label="what is the difference">
+            all three use the same idea: replace each pixel by an average of similar nearby pixels. they differ in who
+            picks the settings. hand-tuned: you. auto: a noise estimate plus a lookup table. neural: a small network,
+            separately for every pixel. neural is the most accurate, the other two are instant.
+          </Tip>
+        </Step>
+        <div className="grid grid-cols-3 gap-2">
+          {modes.map((m) => (
+            <button
+              key={m.k}
+              onClick={() => setMode(m.k)}
+              aria-pressed={mode === m.k}
+              className={`relative rounded-lg border-2 p-2.5 text-left transition-colors sm:p-3 ${
+                mode === m.k ? "border-acc bg-acc/10" : "border-line bg-card hover:border-mute"
+              }`}
+            >
+              <span className="block text-sm font-medium sm:text-base">{m.name}</span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-mute sm:text-xs">{m.sub}</span>
+              {m.best && (
+                <span className="absolute top-2 right-2 hidden rounded-sm bg-acc px-1 font-mono text-[10px] text-bg sm:inline">
+                  best
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-mute">{about[mode]}</p>
+      </div>
+
+      <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_280px]">
         <div>
           <div
             className="relative w-full touch-none select-none overflow-hidden rounded-lg border border-line bg-card"
@@ -383,103 +412,166 @@ export function Demo() {
             onPointerMove={drag}
           >
             <canvas ref={cv} className="h-full w-full cursor-ew-resize" />
-            <span className="pointer-events-none absolute top-2 left-2 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[11px] text-white">
-              {left}
+            <span className="pointer-events-none absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">
+              {left === "noisy" ? "noisy" : "original"}
             </span>
-            <span className="pointer-events-none absolute top-2 right-2 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[11px] text-white">
-              {mode !== "neural"
-                ? mode
-                : nn.st !== "ready"
-                  ? "loading model"
-                  : busy >= 0
-                    ? `running ${Math.round(busy * 100)}%`
-                    : last.current
-                      ? "neural"
-                      : "waiting"}
+            <span className="pointer-events-none absolute top-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">
+              {mode === "neural" && !hasNN ? "noisy" : mode === "neural" && heat !== "none" ? `${heatName[heat]} map` : "cleaned"}
             </span>
-          </div>
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-1 font-mono text-sm">
-            <span>
-              <span className="text-mute">psnr in </span>
-              {isNaN(stats.pn) ? "n/a" : f1(stats.pn)}
+            <span
+              className="pointer-events-none absolute top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 font-mono text-xs text-black shadow"
+              style={{ left: `${split * 100}%` }}
+            >
+              &lsaquo;&rsaquo;
             </span>
-            <span>
-              <span className="text-mute">psnr out </span>
-              <span className="text-acc">{isNaN(stats.po) ? "n/a" : f1(stats.po)}</span>
-              {!isNaN(stats.po) && <span className="text-mute"> dB</span>}
-            </span>
-            {mode === "auto" && (
-              <span>
-                <span className="text-mute">est. σ </span>
-                {isNaN(stats.est) ? "..." : f1(stats.est)}
-              </span>
-            )}
-            {mode === "neural" && nn.st === "ready" && (
-              <span className="text-mute">
-                {nn.ep} {isNaN(stats.ms) ? "" : `${Math.round(stats.ms)} ms`}
+            {working && (
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-2 bg-black/65 px-3 py-2 text-xs text-white">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                {working}
+                {nn.st === "loading" && <span className="text-white/70">(460 kB, only the first time)</span>}
               </span>
             )}
           </div>
-          {sig === 0 && <p className="mt-1 text-xs text-mute">no noise added, so there is no ground truth for psnr.</p>}
+          <p className="mt-1.5 text-xs text-mute">drag across the photo to compare before and after.</p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <span className="flex items-center gap-1.5">
+              <span className="text-mute">quality</span>
+              <span className="font-mono">{isNaN(stats.pn) ? "n/a" : f1(stats.pn)}</span>
+              <span className="text-mute">&rarr;</span>
+              <span className="font-mono text-acc">{isNaN(stats.po) ? "..." : f1(stats.po)}</span>
+              <span className="text-mute">dB</span>
+              <Tip label="about the quality score">
+                PSNR: how close the picture is to the original, noise-free photo. higher is better, and every +3 dB
+                halves the leftover error. it needs the original, so it is only shown when noise was added here.
+              </Tip>
+            </span>
+            {mode === "neural" && nn.st === "ready" && !isNaN(stats.ms) && (
+              <span className="text-xs text-mute">
+                took {(stats.ms / 1000).toFixed(1)} s on {nn.ep === "webgpu" ? "your gpu" : "your cpu"}
+              </span>
+            )}
+          </div>
+          {sig === 0 && (
+            <p className="mt-1 text-xs text-mute">no noise added, so there is no original to score against.</p>
+          )}
           {err && <p className="mt-2 text-sm text-acc">{err}</p>}
         </div>
 
         <div className="space-y-4">
-          <Seg
-            opts={[
-              ["manual", "manual"],
-              ["auto", "auto"],
-              ["neural", "neural"],
-            ]}
-            v={mode}
-            on={setMode}
+          <Slider
+            label="noise to add"
+            v={sig}
+            min={0}
+            max={60}
+            step={1}
+            on={setSig}
+            tip="adds random grain to the photo, like a camera in low light. σ is its strength on the 0-255 scale. set it to 0 for your own already-noisy photo."
           />
-          <p className="text-xs text-mute">
-            {mode === "manual" && "classic bilateral filter in a webgl shader, set the params yourself."}
-            {mode === "auto" &&
-              "noise level is estimated blind (immerkaer), then mapped to filter params with the fit from the grid search."}
-            {mode === "neural" &&
-              "a 93k param unet predicts sig_s, sig_r and a guide per pixel for two bilateral passes. runs in a worker with onnx runtime."}
-          </p>
-          {mode === "neural" && nn.st === "loading" && (
-            <div className="h-1.5 overflow-hidden rounded bg-line">
-              <div className="h-full bg-acc transition-all" style={{ width: `${Math.round(nn.p * 100)}%` }} />
+
+          {mode === "manual" && (
+            <div className="space-y-4 rounded-lg border border-line p-3">
+              <p className="text-xs text-mute">filter settings</p>
+              <Slider
+                label="window radius"
+                v={r}
+                min={1}
+                max={8}
+                step={1}
+                on={setR}
+                tip="how many pixels around each pixel are looked at."
+              />
+              <Slider
+                label="blur distance σ_s"
+                v={ss}
+                min={0.5}
+                max={6}
+                step={0.1}
+                on={setSs}
+                tip="how fast the weight of a neighbour drops with distance, in pixels. bigger = blurrier."
+              />
+              <Slider
+                label="edge threshold σ_r"
+                v={sr}
+                min={2}
+                max={160}
+                step={1}
+                on={setSr}
+                tip="how different two pixels can be and still get averaged. too low leaves noise, too high blurs edges away. a good start is about 2.5 times the noise level."
+              />
+              <Slider
+                label="passes"
+                v={passes}
+                min={1}
+                max={3}
+                step={1}
+                on={setPasses}
+                tip="run the filter again on its own output. two passes with a lower edge threshold often beat one."
+              />
             </div>
           )}
-          <Slider label="added noise σ" v={sig} min={0} max={60} step={1} on={setSig} />
-          <Slider label="radius" v={auto ? auto.r : r} min={1} max={8} step={1} on={setR} off={off} />
-          <Slider label="σ_s (px)" v={auto ? +auto.ss.toFixed(2) : ss} min={0.5} max={6} step={0.1} on={setSs} off={off} />
-          <Slider label="σ_r (0-255)" v={auto ? Math.round(auto.sr) : sr} min={2} max={160} step={1} on={setSr} off={off} />
-          <Slider label="passes" v={mode === "manual" ? passes : 1} min={1} max={3} step={1} on={setPasses} off={off} />
+
+          {mode === "auto" && (
+            <div className="rounded-lg border border-line p-3 text-sm">
+              <p className="flex items-center gap-1.5">
+                <span className="text-mute">measured noise</span>
+                <span className="font-mono">{isNaN(stats.est) ? "..." : f1(stats.est)}</span>
+                {sig > 0 && <span className="text-xs text-mute">(actual {sig})</span>}
+                <Tip label="how the noise is measured">
+                  a small edge-cancelling filter (immerkaer&apos;s method) responds mostly to noise, and its average
+                  response gives the noise level. the settings then come from a table found by testing every
+                  combination on 32 training photos.
+                </Tip>
+              </p>
+              {auto && (
+                <p className="mt-2 font-mono text-xs text-mute">
+                  chose radius {auto.r}, σ_s {auto.ss.toFixed(1)}, σ_r {Math.round(auto.sr)}
+                </p>
+              )}
+            </div>
+          )}
+
           {mode === "neural" && (
-            <div>
-              <p className="mb-1 text-xs text-mute">overlay predicted map</p>
+            <div className="space-y-2 rounded-lg border border-line p-3">
+              <p className="flex items-center gap-1.5 text-xs text-mute">
+                see what the network chose
+                <Tip label="about the overlay">
+                  the network outputs the filter settings for every pixel. colour them over the result to see where it
+                  smooths hard and where it protects detail.
+                </Tip>
+              </p>
               <Seg
                 opts={[
-                  ["none", "none"],
-                  ["sr", "σ_r"],
-                  ["ss", "σ_s"],
+                  ["none", "off"],
+                  ["sr", "edge threshold"],
+                  ["ss", "blur distance"],
                   ["guide", "guide"],
                 ]}
                 v={heat}
                 on={setHeat}
               />
               {heat !== "none" && (
-                <p className="mt-1 font-mono text-[11px] text-mute">
-                  dark {heatRange[0].toFixed(heat === "sr" ? 1 : 2)} &rarr; bright {heatRange[1].toFixed(heat === "sr" ? 1 : 2)}
-                </p>
+                <>
+                  <div className="h-2 rounded bg-[linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)]" />
+                  <p className="flex justify-between font-mono text-[11px] text-mute">
+                    <span>{heatRange[0].toFixed(heat === "sr" ? 1 : 2)}</span>
+                    <span>{heatRange[1].toFixed(heat === "sr" ? 1 : 2)}</span>
+                  </p>
+                  <p className="text-xs text-mute">{heatNote[heat]}</p>
+                </>
               )}
             </div>
           )}
-          <div className="flex flex-wrap gap-2 pt-1">
+
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setLeft(left === "noisy" ? "clean" : "noisy")}
               className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-line/50"
             >
-              left side: {left}
+              compare with {left === "noisy" ? "original" : "noisy"}
             </button>
             <button onClick={download} className="rounded-md bg-ink px-3 py-1.5 text-sm text-bg hover:opacity-85">
-              download result
+              download
             </button>
           </div>
         </div>

@@ -242,9 +242,10 @@ export class bgl {
     }
   }
 
-  show(split: number, alpha: number, showClean: boolean) {
+  // raw: show the noisy image on the right too (neural result not there yet)
+  show(split: number, alpha: number, showClean: boolean, raw = false) {
     const t = this.t!;
-    const right = this.useNN ? this.nn : t[this.out].tex;
+    const right = raw ? t.noisy.tex : this.useNN ? this.nn : t[this.out].tex;
     const px = Math.max(1, window.devicePixelRatio || 1);
     this.pass("show", null, { left: showClean ? t.clean.tex : t.noisy.tex, right, heat: this.heat }, { split, alpha, px });
   }
