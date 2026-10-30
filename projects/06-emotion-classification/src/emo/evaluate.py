@@ -42,6 +42,7 @@ def score(z, ge, yd):
         "temp": t,
         "th": th.tolist(),
         "macro_f1": float(f.mean()),
+        "macro_f1_ci": metrics.boot(yt, pred),
         "micro_f1": metrics.micro(yt, pred),
         "macro_f1_at_05": float(metrics.f1s(yt, metrics.predict(pt, 0.5, top1=False)).mean()),
         "per_label_f1": dict(zip(names, f.round(4).tolist())),
@@ -81,7 +82,8 @@ def main():
         res[k] = {"label": rows[k], **score(z, ge, yd)}
         r = res[k]
         print(
-            f"{k:14s} macro {r['macro_f1']:.4f} micro {r['micro_f1']:.4f} ekman {r['ekman_macro_f1']:.4f} "
+            f"{k:14s} macro {r['macro_f1']:.4f} {np.round(r['macro_f1_ci'], 3)} micro {r['micro_f1']:.4f} "
+            f"ekman {r['ekman_macro_f1']:.4f} "
             f"ood acc {r['ood_acc']:.4f} ece {r['ece_raw']:.4f}->{r['ece_cal']:.4f} t={r['temp']:.2f}"
         )
     dump(res, a.out)

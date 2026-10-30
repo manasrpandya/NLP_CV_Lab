@@ -17,6 +17,14 @@ validation set. ood = zero-shot accuracy on the dair-ai/emotion twitter test set
 sets to ekman groups.
 
 <!-- res -->
+| model | macro-f1 | micro-f1 | ekman macro-f1 | ood acc (twitter) | ece raw / cal | size (mb) |
+|---|---|---|---|---|---|---|
+| tf-idf + logreg | 0.470 | 0.549 | 0.592 | 0.453 | 0.0743 / 0.0506 |  |
+| distilroberta + kd | 0.534 | 0.611 | 0.646 | 0.632 | 0.0295 / 0.0098 |  |
+| distilroberta + kd, int8 onnx | 0.543 | 0.612 | 0.646 | 0.631 | 0.0294 / 0.0097 |  |
+| roberta-large (bce) | 0.542 | 0.616 | 0.653 | 0.621 | 0.0040 / 0.0042 |  |
+| roberta-large (asl) | 0.547 | 0.610 | 0.647 | 0.627 | 0.2144 / 0.0618 |  |
+| roberta-large ens. | 0.547 | 0.616 | 0.659 | 0.624 | 0.0281 / 0.0260 |  |
 <!-- /res -->
 
 ## layout

@@ -20,15 +20,26 @@ def micro(y, pred):
     return float(2 * tp / max(2 * tp + ((1 - y) * pred).sum() + (y * (1 - pred)).sum(), 1))
 
 
-def tune_th(y, p):
-    # best threshold per label on val, searched independently
+def tune_th(y, p, sm=9):
+    # best threshold per label on val. the f1-vs-threshold curve of a rare label is jagged (grief has 13 val
+    # positives), so it is smoothed with a moving average first, otherwise the argmax lands on noise
     pred = p[:, :, None] >= grid[None, None, :]
     yy = y[:, :, None]
     tp = (yy * pred).sum(0)
     fp = ((1 - yy) * pred).sum(0)
     fn = (yy * (1 - pred)).sum(0)
     f = 2 * tp / np.maximum(2 * tp + fp + fn, 1)
+    if sm > 1:
+        k = np.ones(sm) / sm
+        f = np.stack([np.convolve(np.pad(r, sm // 2, mode="edge"), k, mode="valid") for r in f])
     return grid[f.argmax(1)]
+
+
+def boot(y, pred, n=500, seed=0):
+    # 95% bootstrap interval of macro-f1 over test examples
+    rng = np.random.default_rng(seed)
+    fs = [f1s(y[i], pred[i]).mean() for i in (rng.integers(0, len(y), len(y)) for _ in range(n))]
+    return [float(np.percentile(fs, 2.5)), float(np.percentile(fs, 97.5))]
 
 
 def predict(p, th, top1=True):
