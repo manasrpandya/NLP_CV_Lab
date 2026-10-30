@@ -38,7 +38,7 @@ def score(z, ge, yd):
     pd = to_ekman(metrics.sig(z["dair"] / t))[:, ood_cls]
     yh = np.array(ood_cls)[pd.argmax(1)]
     yg = dair2ek[yd]
-    return {
+    return pred, {
         "temp": t,
         "th": th.tolist(),
         "macro_f1": float(f.mean()),
@@ -77,9 +77,10 @@ def main():
             zs[k] = dict(np.load(p))
     if "teacher-bce" in zs and "teacher-asl" in zs:
         zs["teacher-ens"] = ens([zs["teacher-bce"], zs["teacher-asl"]], ge["validation"][1])
-    res = {}
+    res, preds = {}, {}
     for k, z in zs.items():
-        res[k] = {"label": rows[k], **score(z, ge, yd)}
+        preds[k], r = score(z, ge, yd)
+        res[k] = {"label": rows[k], **r}
         r = res[k]
         print(
             f"{k:14s} macro {r['macro_f1']:.4f} {np.round(r['macro_f1_ci'], 3)} micro {r['micro_f1']:.4f} "
@@ -87,6 +88,25 @@ def main():
             f"ood acc {r['ood_acc']:.4f} ece {r['ece_raw']:.4f}->{r['ece_cal']:.4f} t={r['temp']:.2f}"
         )
     dump(res, a.out)
+    # paired bootstrap: same resampled comments for both models, so the shared noise cancels
+    pairs = [("student-kd", "student-hard"), ("student-int8", "student-kd"), ("teacher-ens", "student-int8"),
+             ("teacher-asl", "teacher-bce"), ("bigru", "tfidf"), ("student-hard", "bigru")]  # fmt: skip
+    yt = ge["test"][1]
+    rng = np.random.default_rng(0)
+    idx = [rng.integers(0, len(yt), len(yt)) for _ in range(1000)]
+    pb = {}
+    for x, y in pairs:
+        if x in preds and y in preds:
+            d = np.array(
+                [metrics.f1s(yt[i], preds[x][i]).mean() - metrics.f1s(yt[i], preds[y][i]).mean() for i in idx]
+            )
+            pb[f"{x} - {y}"] = {"delta": float(d.mean()), "ci": np.percentile(d, [2.5, 97.5]).tolist(),
+                                "p_le_0": float((d <= 0).mean())}  # fmt: skip
+            print(
+                f"{x} - {y}: {d.mean():+.4f} {np.percentile(d, [2.5, 97.5]).round(4)} "
+                f"p(<=0)={(d <= 0).mean():.3f}"
+            )
+    dump(pb, Path(a.out).with_name("paired.json"))
 
 
 if __name__ == "__main__":

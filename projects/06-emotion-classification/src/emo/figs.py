@@ -64,6 +64,7 @@ def cooc(z, ge, th, t):
     # rows: gold label, cols: how often each label is predicted on those examples
     conf = (yt.T @ pred) / np.maximum(yt.sum(0)[:, None], 1)
     co = (yt.T @ yt) / np.maximum(yt.sum(0)[:, None], 1)
+    np.fill_diagonal(co, np.nan)
     fig, axs = plt.subplots(1, 2, figsize=(12, 5.6))
     for ax, mat, ttl in [
         (axs[0], co, "gold co-occurrence  p(col | row)"),
@@ -81,38 +82,23 @@ def cooc(z, ge, th, t):
 
 def tradeoff(m, b):
     pts = [
-        (
-            "roberta-large (teacher)",
-            b["teacher"]["mb"],
-            b["teacher"]["ms"],
-            m["teacher-bce"]["macro_f1"],
-            "teacher",
-        ),
-        (
-            "distilroberta + kd",
-            b["student"]["mb"],
-            b["student"]["ms"],
-            m["student-kd"]["macro_f1"],
-            "student",
-        ),
-        (
-            "same, int8 onnx",
-            b["onnx-int8"]["mb"],
-            b["onnx-int8"]["ms"],
-            m["student-int8"]["macro_f1"],
-            "int8",
-        ),
+        ("roberta-large", "teacher", "teacher-bce", "teacher"),
+        ("distilroberta + kd", "student", "student-kd", "student"),
+        ("int8 onnx", "onnx-int8", "student-int8", "int8"),
     ]
-    fig, axs = plt.subplots(1, 2, figsize=(7.5, 3))
-    for lbl, mb, ms, f, c in pts:
-        axs[0].scatter(mb, f, s=40, color=col[c], zorder=3)
-        axs[0].annotate(lbl, (mb, f), textcoords="offset points", xytext=(6, -10), fontsize=7.5)
-        axs[1].scatter(ms, f, s=40, color=col[c], zorder=3)
-    axs[0].set_xscale("log")
-    axs[1].set_xscale("log")
+    fig, axs = plt.subplots(1, 2, figsize=(7.5, 3), sharey=True)
+    for lbl, bk, mk, c in pts:
+        f, (lo, hi) = m[mk]["macro_f1"], m[mk]["macro_f1_ci"]
+        for ax, x in [(axs[0], b[bk]["mb"]), (axs[1], b[bk]["ms"])]:
+            ax.errorbar(x, f, yerr=[[f - lo], [hi - f]], fmt="o", ms=6, color=col[c], capsize=3, zorder=3)
+            ax.annotate(lbl, (x, f), textcoords="offset points", xytext=(7, -3), ha="left", fontsize=7.5)
+    for ax in axs:
+        ax.set_xscale("log")
+        ax.set_xlim(ax.get_xlim()[0] / 1.6, ax.get_xlim()[1] * 1.6)
+    axs[0].set_ylim(0.48, 0.6)
     axs[0].set_xlabel("weights on disk (mb, log)")
     axs[1].set_xlabel(f"cpu latency per sentence (ms, {b['threads']} threads, log)")
-    axs[0].set_ylabel("test macro-f1")
+    axs[0].set_ylabel("test macro-f1 (95% bootstrap ci)")
     fig.savefig(out / "tradeoff.png")
     plt.close(fig)
 

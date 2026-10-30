@@ -1,0 +1,56 @@
+\section{method}
+
+\subsection{models}
+
+\textbf{tf-idf + logistic regression.} word 1--2 grams and character 2--5 grams (200k features each, sublinear
+tf), one balanced logistic regression per label. $C$ was picked from $\{1, 4, 16\}$ on validation ($C=1$).
+
+\textbf{bigru + glove.} a simple regex tokenizer, 300-d GloVe 6B vectors \cite{glove} for every word that has
+one (random init for the rest that appear at least twice), a single bidirectional GRU with 256 units per
+direction, then max and mean pooling over time and a linear layer. embeddings are fine-tuned with a 10x
+smaller learning rate. this is the classic ``deep learning before transformers'' baseline.
+
+\textbf{teacher: roberta-large} \cite{roberta} (355M parameters) with a linear head over the \texttt{<s>}
+token. i trained two of them, one with plain BCE and one with ASL ($\gamma_-=4$, $\gamma_+=0$, clip 0.05).
+both use AdamW, peak lr $2\cdot10^{-5}$ with 6\% warmup and linear decay, layer-wise lr decay of 0.95 per
+layer going down (so the embeddings get about $0.28\times$ the head's lr), batch 32, 4 epochs, fp16 mixed
+precision. the epoch with the best validation macro-f1 is kept. averaging the two teachers' logits gives a
+small ensemble, which is what the student is distilled from.
+
+\textbf{student: distilroberta-base} \cite{distilbert} (82M parameters, 6 layers). i picked it over MiniLM
+because it uses the same byte-level BPE tokenizer as roberta, which keeps casing and emojis instead of
+mapping them to \texttt{[UNK]}, and after int8 quantization it fits the ~90 mb budget for the browser. it is
+trained for 6 epochs at lr $6\cdot10^{-5}$ with llrd 0.9 and the loss
+\[
+  \mathcal{L} = \alpha\,\mathrm{BCE}(z_s, y) + (1-\alpha)\,T^2\,\mathrm{BCE}\big(z_s/T,\ \sigma(\bar z_t/T)\big),
+  \qquad \alpha = 0.5,\ T = 2,
+\]
+where $\bar z_t$ is the mean of the two teachers' logits on the training set. as an ablation the same student
+is also trained on hard labels only.
+
+\subsection{decision rule and calibration}
+
+the same post-processing is applied to every model so the comparison is fair. on the validation set i fit
+one temperature $T$ (grid search on the BCE), then pick a threshold per label from 0.02 to 0.95 that
+maximises that label's f1. at test time a label is predicted if its calibrated probability passes its
+threshold; if no label passes, the one closest to its threshold (highest $p/t$) is predicted, since every
+GoEmotions comment has at least one label. Ekman scores are the max over each group's members, with their own
+thresholds tuned the same way.
+
+ECE is computed over every (comment, label) pair with 15 bins. because 96\% of those pairs are easy negatives
+near zero, this number is tiny for every model, so i also report ECE restricted to pairs where the model
+gives more than 5\%, which is where calibration actually matters for the demo.
+
+\subsection{export}
+
+the student is exported with optimum \cite{optimum} to ONNX (opset 17), then quantized with onnxruntime's
+dynamic int8 quantization (MatMul and Gather, so the 50k$\times$768 embedding matrix is int8 too). an fp16
+copy is made for webgpu. parity with pytorch is checked on a few sentences with \texttt{labcore.parity}, and
+the int8 model is re-evaluated on the full test set. the browser uses the int8 model's own temperature and
+thresholds.
+
+\subsection{compute}
+
+the transformers were trained on a free colab T4 (fp16 only, no bf16). one roberta-large epoch takes about 7
+minutes at 3.35 it/s, the full queue (two teachers, two students, the bigru) about \todo{X} minutes.
+everything after training (tf-idf, evaluation, export, benchmarks, figures) ran on my laptop's cpu.
