@@ -2,9 +2,11 @@ import res from "./results.json";
 
 // same blind estimate + param mapping as bden/classic.py (method b in the report)
 
-export function luma(px: Uint8Array, w: number, h: number) {
+// one channel of an rgba buffer as floats. noise is estimated per channel (the filter is per channel too),
+// estimating on luma would shrink independent channel noise by ~0.67
+export function chan(px: Uint8Array, w: number, h: number, c: number) {
   const y = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) y[i] = (0.299 * px[4 * i] + 0.587 * px[4 * i + 1] + 0.114 * px[4 * i + 2]) / 255;
+  for (let i = 0; i < w * h; i++) y[i] = px[4 * i + c] / 255;
   return y;
 }
 

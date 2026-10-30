@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bgl } from "@/lib/bilateral-denoising/gl";
-import { autoParams, estSigma, luma, psnr } from "@/lib/bilateral-denoising/est";
+import { autoParams, chan, estSigma, psnr } from "@/lib/bilateral-denoising/est";
 
 const samples = ["parrots", "lighthouse", "houses", "monarch"];
 const maxSide = 768;
@@ -131,8 +131,8 @@ export function Demo() {
     // blind noise estimate for auto mode (every frame would be wasteful on video)
     if (s.mode === "auto" && (estKey.current !== k || isNaN(estVal.current)) && (!cam || s.frame % 20 === 1)) {
       estKey.current = k;
-      const y = luma(G.read("noisy"), G.w, G.h);
-      estVal.current = estSigma(y, G.w, G.h);
+      const px = G.read("noisy");
+      estVal.current = [0, 1, 2].reduce((a, c) => a + estSigma(chan(px, G.w, G.h, c), G.w, G.h), 0) / 3;
     }
     let q = { sig: s.sig, r: s.r, ss: s.ss, sr: s.sr / 255, passes: s.passes };
     if (s.mode === "auto" && !isNaN(estVal.current)) {
