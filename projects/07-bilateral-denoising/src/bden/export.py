@@ -6,7 +6,6 @@ import torch
 from labcore import dump, parity
 
 from bden import data, zoo
-from bden.model import build
 
 here = Path(__file__).resolve().parents[2]
 
@@ -23,10 +22,20 @@ class wrap(torch.nn.Module):
 
 def export(mdl, p, opset=17):
     x = torch.rand(1, 1, 64, 80)
-    torch.onnx.export(wrap(mdl).eval(), (x,), str(p), input_names=["x"], output_names=["y", "maps"],
-                      dynamic_axes={"x": {0: "n", 2: "h", 3: "w"}, "y": {0: "n", 2: "h", 3: "w"},
-                                    "maps": {0: "n", 2: "h", 3: "w"}},
-                      opset_version=opset, dynamo=False)
+    torch.onnx.export(
+        wrap(mdl).eval(),
+        (x,),
+        str(p),
+        input_names=["x"],
+        output_names=["y", "maps"],
+        dynamic_axes={
+            "x": {0: "n", 2: "h", 3: "w"},
+            "y": {0: "n", 2: "h", 3: "w"},
+            "maps": {0: "n", 2: "h", 3: "w"},
+        },
+        opset_version=opset,
+        dynamo=False,
+    )
     return p
 
 
@@ -52,7 +61,10 @@ def main():
     ok, err = check(mdl, p, ims)
     kb = p.stat().st_size / 1024
     print("parity", ok, err, f"{kb:.0f} kb")
-    dump({"mdl": a.mdl, "parity_ok": ok, "max_abs_err": err, "kb": kb, "opset": 17}, here / "results" / "onnx.json")
+    dump(
+        {"mdl": a.mdl, "parity_ok": ok, "max_abs_err": err, "kb": kb, "opset": 17},
+        here / "results" / "onnx.json",
+    )
 
 
 if __name__ == "__main__":

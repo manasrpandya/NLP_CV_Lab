@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-
 from bden.export import check, export
 from bden.model import build
 

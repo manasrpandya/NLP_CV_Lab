@@ -74,8 +74,10 @@ def main():
             if v > best:
                 best = v
                 torch.save(mdl.state_dict(), here / "ckpt" / f"{a.mdl}.pt")
-    dump({"mdl": a.mdl, "params": n_par, "args": vars(a), "best_val25": best, "log": log},
-         here / "results" / f"train_{a.mdl}.json")
+    dump(
+        {"mdl": a.mdl, "params": n_par, "args": vars(a), "best_val25": best, "log": log},
+        here / "results" / f"train_{a.mdl}.json",
+    )
 
 
 if __name__ == "__main__":

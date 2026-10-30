@@ -16,8 +16,17 @@ n_val = 32  # last 32 of train400 are held out for param search
 def _sparse(dst, paths):
     with tempfile.TemporaryDirectory() as td:
         run = lambda *a: subprocess.run(a, cwd=td, check=True, capture_output=True)  # noqa: E731
-        run("git", "clone", "-q", "--depth", "1", "--filter=blob:none", "--sparse",
-            "https://github.com/cszn/DnCNN.git", ".")
+        run(
+            "git",
+            "clone",
+            "-q",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            "--sparse",
+            "https://github.com/cszn/DnCNN.git",
+            ".",
+        )
         run("git", "sparse-checkout", "set", *paths.values())
         for name, sub in paths.items():
             (dst / name).mkdir(parents=True, exist_ok=True)
@@ -50,11 +59,14 @@ def _sidd(dst, n=320):
 
 def fetch():
     if not (root / "train400").exists():
-        _sparse(root, {
-            "train400": "TrainingCodes/DnCNN_TrainingCodes_v1.0/data/Train400",
-            "set12": "testsets/Set12",
-            "bsd68": "testsets/BSD68",
-        })
+        _sparse(
+            root,
+            {
+                "train400": "TrainingCodes/DnCNN_TrainingCodes_v1.0/data/Train400",
+                "set12": "testsets/Set12",
+                "bsd68": "testsets/BSD68",
+            },
+        )
     _kodak(root / "kodak24")
     if not (root / "sidd").exists():
         _sidd(root / "sidd")

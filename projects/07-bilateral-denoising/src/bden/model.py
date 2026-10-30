@@ -6,8 +6,9 @@ from bden.bf import bilat
 
 
 def block(i, o, stride=1):
-    return nn.Sequential(nn.Conv2d(i, o, 3, stride, 1), nn.LeakyReLU(0.1), nn.Conv2d(o, o, 3, 1, 1),
-                         nn.LeakyReLU(0.1))
+    return nn.Sequential(
+        nn.Conv2d(i, o, 3, stride, 1), nn.LeakyReLU(0.1), nn.Conv2d(o, o, 3, 1, 1), nn.LeakyReLU(0.1)
+    )
 
 
 class unet(nn.Module):

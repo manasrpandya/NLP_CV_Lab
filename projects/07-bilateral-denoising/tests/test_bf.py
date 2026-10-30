@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import torch
-
 from bden.bf import bilat
 from bden.est import immerkaer, wavelet
 

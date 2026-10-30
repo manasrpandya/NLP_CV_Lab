@@ -67,7 +67,12 @@ def run_split(m, name, sig, pool):
                 out = mdl(t)[0, 0].float().cpu().numpy()
                 r.append((psnr(x, out), ssim(x, out), time.perf_counter() - t0))
     r = np.array(r)
-    return {"psnr": r[:, 0].mean(), "ssim": r[:, 1].mean(), "sec": np.median(r[:, 2]), "per": r[:, 0].round(3).tolist()}
+    return {
+        "psnr": r[:, 0].mean(),
+        "ssim": r[:, 1].mean(),
+        "sec": np.median(r[:, 2]),
+        "per": r[:, 0].round(3).tolist(),
+    }
 
 
 def main():
