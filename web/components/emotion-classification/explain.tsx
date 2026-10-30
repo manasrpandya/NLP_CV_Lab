@@ -35,9 +35,9 @@ export function Explain({ o, sel, pick, top }: { o: occ; sel: number; pick: (i: 
             key={i}
             onClick={() => pick(i)}
             className={`rounded-full border px-2.5 py-0.5 transition-colors ${
-              i === sel ? "border-transparent text-white" : "border-line text-mute hover:text-ink"
+              i === sel ? "border-2 font-medium text-ink" : "border-line text-mute hover:text-ink"
             }`}
-            style={i === sel ? { background: color(names[i]) } : undefined}
+            style={i === sel ? { borderColor: color(names[i]) } : undefined}
           >
             {names[i]}
           </button>

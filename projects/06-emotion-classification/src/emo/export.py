@@ -6,6 +6,7 @@ import numpy as np
 from labcore import dump, load, parity
 
 from emo import metrics
+from emo.labels import names
 
 
 def to_onnx(mdl_dir, out, opset=17):
@@ -76,6 +77,47 @@ samples = [
 ]
 
 
+def card(res, m):
+    r = m["student-int8"]
+    return f"""---
+license: mit
+datasets: [google-research-datasets/go_emotions]
+language: [en]
+pipeline_tag: text-classification
+library_name: transformers.js
+tags: [onnx, emotion, multi-label, goemotions]
+---
+
+# goemotions-distil-onnx
+
+distilroberta-base fine-tuned on GoEmotions (27 emotions + neutral, multi-label) with knowledge distillation
+from a roberta-large teacher ensemble ([manasrpandya/goemotions-teacher](https://huggingface.co/manasrpandya/goemotions-teacher)).
+exported to ONNX for transformers.js. `onnx/model_quantized.onnx` is int8 dynamic quantization
+({res["parity"]["int8"]["mb"]:.0f} mb), `onnx/model_fp16.onnx` is for webgpu, `onnx/model.onnx` is fp32.
+
+test set (int8 model, per-label thresholds tuned on validation): macro-f1 {r["macro_f1"]:.3f}, micro-f1
+{r["micro_f1"]:.3f}, ekman macro-f1 {r["ekman_macro_f1"]:.3f}.
+
+the outputs are logits, use sigmoid(logits / {r["temp"]:.3f}) for calibrated probabilities. the tuned
+thresholds are in `calib.json`. live demo: https://nlp-cv-lab.vercel.app/p/emotion-classification,
+code: https://github.com/manasrpandya/NLP_CV_Lab/tree/main/projects/06-emotion-classification
+"""
+
+
+def push(out, repo="manasrpandya/goemotions-distil-onnx"):
+    from huggingface_hub import HfApi
+
+    m = load("results/metrics.json")
+    res = load("results/onnx.json")
+    r = m["student-int8"]
+    out = Path(out)
+    (out / "README.md").write_text(card(res, m))
+    dump({"temp": r["temp"], "th": r["th"], "labels": names}, out / "calib.json")
+    api = HfApi()
+    api.create_repo(repo, exist_ok=True)
+    api.upload_folder(repo_id=repo, folder_path=out, commit_message="onnx export")
+
+
 def main():
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -86,7 +128,10 @@ def main():
     ap.add_argument("--out", default="runs/onnx")
     ap.add_argument("--metrics", default="results/metrics.json")
     ap.add_argument("--run", default="student-kd")
+    ap.add_argument("--push", action="store_true", help="only push an existing export to the hub")
     a = ap.parse_args()
+    if a.push:
+        return push(a.out)
 
     tok = AutoTokenizer.from_pretrained(a.src)
     mdl = AutoModelForSequenceClassification.from_pretrained(a.src).eval()
@@ -101,16 +146,22 @@ def main():
         res["parity"][k] = {"ok": ok, "max_abs_err": errs[0], "mb": q.stat().st_size / 2**20}
         print(k, ok, errs, f"{q.stat().st_size / 2**20:.1f} mb")
 
-    # f1 drop from quantization on the full test set, using the torch model's temperature + thresholds
+    # f1 drop from quantization on the full test set, using the torch model's temperature + thresholds.
+    # the int8 logits are also saved as their own run so evaluate.py can calibrate the deployed model.
     r = load(a.metrics)[a.run]
     ge = data.load_ge()
+    xd, _ = data.load_dair("test")
     yt = ge["test"][1]
     for k, q in [("fp32", p), ("int8", pq)]:
-        pt = metrics.sig(ort_logits(q, tok, ge["test"][0]) / r["temp"])
-        pred = metrics.predict(pt, np.array(r["th"]))
+        zt = ort_logits(q, tok, ge["test"][0])
+        pred = metrics.predict(metrics.sig(zt / r["temp"]), np.array(r["th"]))
         res[f"test_macro_f1_{k}"] = float(metrics.f1s(yt, pred).mean())
         res[f"test_micro_f1_{k}"] = metrics.micro(yt, pred)
         print(k, res[f"test_macro_f1_{k}"])
+        if k == "int8":
+            zs = {"test": zt, "val": ort_logits(q, tok, ge["validation"][0]), "dair": ort_logits(q, tok, xd)}
+            Path("runs/student-int8").mkdir(parents=True, exist_ok=True)
+            np.savez_compressed("runs/student-int8/logits.npz", **zs)
     res["torch_macro_f1"] = r["macro_f1"]
     dump(res, "results/onnx.json")
 

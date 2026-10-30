@@ -14,6 +14,7 @@ rows = {
     "bigru": "bigru + glove",
     "student-hard": "distilroberta (hard labels)",
     "student-kd": "distilroberta + kd",
+    "student-int8": "distilroberta + kd, int8 onnx",
     "teacher-bce": "roberta-large (bce)",
     "teacher-asl": "roberta-large (asl)",
     "teacher-ens": "roberta-large ens.",

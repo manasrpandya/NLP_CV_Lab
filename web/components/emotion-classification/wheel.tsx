@@ -3,7 +3,8 @@ import { active, ekman, groupScores, hue, names } from "@/lib/emotion-classifica
 const c = 130;
 const r0 = 34;
 const R = 104;
-const ring = ["joy", "surprise", "fear", "sadness", "disgust", "anger"];
+// order picked so neighbouring sectors stay distinguishable for colour-blind readers
+const ring = ["joy", "surprise", "anger", "sadness", "disgust", "fear"];
 
 const pt = (a: number, r: number) => [c + r * Math.sin(a), c - r * Math.cos(a)];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { active, names, probs } from "@/lib/emotion-classification/meta";
+import { active, huecss, names, probs } from "@/lib/emotion-classification/meta";
 import { Arc, sentences } from "./arc";
 import { Bars } from "./bars";
 import { Explain, splitWords, variants, type occ } from "./explain";
@@ -104,6 +104,7 @@ export function Demo() {
 
   return (
     <section className="space-y-6">
+      <style>{huecss}</style>
       <div className="flex items-center justify-between gap-4">
         <div className="inline-flex rounded-md border border-line p-0.5 text-sm">
           {(["text", "arc"] as const).map((m) => (

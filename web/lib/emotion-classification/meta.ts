@@ -21,16 +21,14 @@ export const ekman: Record<string, string[]> = {
 };
 export const groups = Object.keys(ekman);
 
-// one hue per ekman group, readable on both the light and dark background
-export const hue: Record<string, string> = {
-  joy: "#d99a1e",
-  surprise: "#1f9e89",
-  fear: "#7c5cc4",
-  sadness: "#3b7dd8",
-  disgust: "#6f8f2a",
-  anger: "#d64541",
-  neutral: "#8a857b",
-};
+// one hue per ekman group (css vars so light and dark get their own steps, see huecss)
+export const hue: Record<string, string> = Object.fromEntries(
+  ["joy", "surprise", "fear", "sadness", "disgust", "anger", "neutral"].map((g) => [g, `var(--e-${g})`]),
+);
+const lt = { joy: "#eda100", surprise: "#1baf7a", fear: "#6250d6", sadness: "#2a78d6", disgust: "#008300", anger: "#e34948", neutral: "#8a857b" };
+const dk = { joy: "#c98500", surprise: "#199e70", fear: "#9085e9", sadness: "#3987e5", disgust: "#008300", anger: "#e66767", neutral: "#9a958a" };
+const vars = (m: Record<string, string>) => Object.entries(m).map(([k, v]) => `--e-${k}:${v};`).join("");
+export const huecss = `:root{${vars(lt)}}@media (prefers-color-scheme: dark){:root{${vars(dk)}}}`;
 
 export const groupOf: Record<string, string> = Object.fromEntries(
   groups.flatMap((g) => ekman[g].map((n) => [n, g])),
