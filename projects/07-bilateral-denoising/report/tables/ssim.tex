@@ -1,0 +1,15 @@
+\begin{tabular}{lcccc}
+\toprule
+method & 15 & 25 & 50 & SIDD \\
+\midrule
+noisy input & 0.590 & 0.416 & 0.218 & 0.432 \\
+bilateral, tuned per sigma & 0.820 & 0.711 & 0.570 & 0.600 \\
+bilateral, blind auto params & 0.815 & 0.705 & 0.569 & 0.600 \\
+iterated bilateral & 0.836 & 0.744 & 0.596 & 0.615 \\
+joint bilateral (smoothed guide) & 0.836 & 0.740 & 0.559 & 0.612 \\
+neural-guided bilateral (ours) & 0.877 & 0.807 & 0.682 & 0.444 \\
+non-local means (cv2) & 0.826 & 0.722 & 0.579 & 0.666 \\
+BM3D & 0.880 & 0.809 & 0.691 & 0.491 \\
+DnCNN-B (pretrained) & 0.892 & 0.830 & 0.719 & 0.453 \\
+\bottomrule
+\end{tabular}

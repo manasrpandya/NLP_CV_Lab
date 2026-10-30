@@ -1,0 +1,15 @@
+\begin{tabular}{lrrr}
+\toprule
+method & cpu (ms) & gpu (ms) & params \\
+\midrule
+bilateral, tuned per sigma & 12 & - & - \\
+iterated bilateral & 14 & - & - \\
+joint bilateral (smoothed guide) & 71 & - & - \\
+non-local means (cv2) & 162 & - & - \\
+BM3D & 5040 & - & - \\
+neural-guided bilateral (ours) & 291$^*$ & 27.5 & 93k \\
+same unet, plain residual & 154$^*$ & 13.1 & 93k \\
+DnCNN-B (pretrained) & 2506$^*$ & 134.4 & 666k \\
+nbf, onnx runtime & 501$^*$ & - & - \\
+\bottomrule
+\end{tabular}
