@@ -76,7 +76,9 @@ export function Demo() {
       }
       const pv = probs(await run(variants(parts, widx)));
       if (id !== req.current) return;
-      setO({ parts, widx, d: pv.map((q) => q.map((v, i) => pf[i] - v)) });
+      // log-odds instead of raw probability, otherwise a saturated 99% label shows no word effects at all
+      const lo = (v: number) => Math.log(Math.max(v, 1e-6) / Math.max(1 - v, 1e-6));
+      setO({ parts, widx, d: pv.map((q) => q.map((v, i) => lo(pf[i]) - lo(v))) });
     }, 250);
     return () => clearTimeout(t);
   }, [x, ready, mode, run]);

@@ -15,6 +15,11 @@ export function sentences(s: string) {
 const w = 640;
 const h = 220;
 const pad = { l: 30, r: 12, t: 12, b: 22 };
+// lines get their own fixed categorical slots: two emotions from the same ekman group would share a hue
+const slot = ["var(--a1)", "var(--a2)", "var(--a3)", "var(--a4)", "var(--a5)"];
+const slotcss =
+  ":root{--a1:#2a78d6;--a2:#eb6834;--a3:#1baf7a;--a4:#eda100;--a5:#e87ba4}" +
+  "@media (prefers-color-scheme: dark){:root{--a1:#3987e5;--a2:#d95926;--a3:#199e70;--a4:#c98500;--a5:#d55181}}";
 
 // emotion trajectory: one line per emotion that is strong somewhere in the text
 export function Arc({ xs, ps }: { xs: string[]; ps: number[][] }) {
@@ -37,9 +42,10 @@ export function Arc({ xs, ps }: { xs: string[]; ps: number[][] }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        {show.map((i) => (
+        <style>{slotcss}</style>
+        {show.map((i, j) => (
           <span key={i} className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-4" style={{ background: color(names[i]) }} />
+            <span className="inline-block h-0.5 w-4" style={{ background: slot[j] }} />
             {names[i]}
           </span>
         ))}
@@ -54,11 +60,11 @@ export function Arc({ xs, ps }: { xs: string[]; ps: number[][] }) {
           </g>
         ))}
         {hi !== null && <line x1={X(hi)} x2={X(hi)} y1={pad.t} y2={h - pad.b} stroke="var(--mute)" strokeDasharray="3 3" />}
-        {show.map((i) => (
+        {show.map((i, j) => (
           <polyline
             key={i}
             fill="none"
-            stroke={color(names[i])}
+            stroke={slot[j]}
             strokeWidth={2}
             strokeLinejoin="round"
             points={ps.map((p, k) => `${X(k)},${Y(p[i])}`).join(" ")}

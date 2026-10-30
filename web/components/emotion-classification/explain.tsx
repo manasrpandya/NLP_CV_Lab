@@ -24,7 +24,7 @@ export function variants(parts: string[], widx: number[]) {
 
 export function Explain({ o, sel, pick, top }: { o: occ; sel: number; pick: (i: number) => void; top: number[] }) {
   const ds = o.d.map((r) => r[sel]);
-  const mx = Math.max(0.02, ...ds.map(Math.abs));
+  const mx = Math.max(0.5, ...ds.map(Math.abs));
   const at = new Map(o.widx.map((pi, k) => [pi, k]));
   return (
     <div>
@@ -51,7 +51,7 @@ export function Explain({ o, sel, pick, top }: { o: occ; sel: number; pick: (i: 
           return (
             <span
               key={j}
-              title={`${v >= 0 ? "+" : ""}${(ds[k] * 100).toFixed(1)} pts ${names[sel]}`}
+              title={`${ds[k] >= 0 ? "+" : ""}${ds[k].toFixed(2)} log-odds ${names[sel]}`}
               className={`rounded px-0.5 py-0.5 ${v < -0.15 ? "underline decoration-dotted decoration-mute" : ""}`}
               style={v > 0 ? { background: `color-mix(in srgb, ${color(names[sel])} ${Math.round(v * 70)}%, transparent)` } : undefined}
             >
@@ -61,7 +61,7 @@ export function Explain({ o, sel, pick, top }: { o: occ; sel: number; pick: (i: 
         })}
       </p>
       <p className="mt-2 text-xs text-mute">
-        shading = how much the {names[sel]} probability drops when that word is removed. dotted words push it up
+        shading = how much the evidence for {names[sel]} (log-odds) drops when that word is removed. dotted words push it up
         when removed (they argue against it).
       </p>
     </div>

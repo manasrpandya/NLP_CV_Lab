@@ -36,6 +36,7 @@ export function useModel() {
         } else setSt((s) => ({ ...s, phase: "error", msg: m.msg }));
       }
     };
+    wk.onerror = (e) => setSt((s) => ({ ...s, phase: "error", msg: e.message || "worker failed to start" }));
     wk.postMessage({ type: "load" });
     w.current = wk;
     return () => {
