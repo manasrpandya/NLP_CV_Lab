@@ -16,6 +16,12 @@ sets = [("set12", "Set12"), ("bsd68", "BSD68"), ("kodak24", "Kodak24")]
 sigs = [15, 25, 50]
 
 
+def cap(t):
+    # sentence case for the report, the readme keeps the short lowercase labels
+    t = t.replace("nbf", "NBF").replace("unet", "U-Net").replace("onnx runtime", "ONNX Runtime")
+    return t[:1].upper() + t[1:]
+
+
 def tex_main(ev):
     cols = [f"{d}/{s}" for d, _ in sets for s in sigs] + ["sidd/0"]
     best = {c: max(ev[m][c]["psnr"] for m in bil) for c in cols}
@@ -24,7 +30,7 @@ def tex_main(ev):
         r"\toprule",
         " & & " + " & ".join(rf"\multicolumn{{3}}{{c}}{{{n}}}" for _, n in sets) + r" & SIDD \\",
         r"\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}\cmidrule(lr){12-12}",
-        " & method & " + " & ".join(str(s) for _ in sets for s in sigs) + r" & real \\",
+        " & Method & " + " & ".join(str(s) for _ in sets for s in sigs) + r" & real \\",
         r"\midrule",
     ]
     for m in main_rows:
@@ -35,16 +41,16 @@ def tex_main(ev):
         for c in cols:
             v = ev[m][c]["psnr"]
             cells.append(rf"\textbf{{{v:.2f}}}" if m in bil and abs(v - best[c]) < 1e-9 else f"{v:.2f}")
-        out.append(f"{grp} & {lbl} & " + " & ".join(cells) + r" \\")
+        out.append(f"{grp} & {cap(lbl)} & " + " & ".join(cells) + r" \\")
     out += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(out)
 
 
 def tex_ssim(ev):
-    out = [r"\begin{tabular}{lcccc}", r"\toprule", r"method & 15 & 25 & 50 & SIDD \\", r"\midrule"]
+    out = [r"\begin{tabular}{lcccc}", r"\toprule", r"Method & 15 & 25 & 50 & SIDD \\", r"\midrule"]
     for m in main_rows:
         out.append(
-            labels[m][0]
+            cap(labels[m][0])
             + " & "
             + " & ".join(f"{ev[m][c]['ssim']:.3f}" for c in [f"bsd68/{s}" for s in sigs] + ["sidd/0"])
             + r" \\"
@@ -57,13 +63,13 @@ def tex_abl(ev):
     out = [
         r"\begin{tabular}{lrcccc}",
         r"\toprule",
-        r"variant & params & val (25) & BSD68 15 & 25 & 50 \\",
+        r"Variant & Params & Val (25) & BSD68 15 & 25 & 50 \\",
         r"\midrule",
     ]
     for m in ["nbf", "nbf_noguide", "nbf_1stage", "cnn"]:
         tr = load(res / f"train_{m}.json")
         out.append(
-            f"{labels[m][0]} & {tr['params'] / 1000:.1f}k & {tr['best_val25']:.2f} & "
+            f"{cap(labels[m][0])} & {tr['params'] / 1000:.1f}k & {tr['best_val25']:.2f} & "
             + " & ".join(f"{ev[m][f'bsd68/{s}']['psnr']:.2f}" for s in sigs)
             + r" \\"
         )
@@ -74,25 +80,25 @@ def tex_abl(ev):
 def tex_bench():
     b = load(res / "bench.json")
     rows = [("bf_oracle", "cpu"), ("bf_iter", "cpu"), ("bf_joint", "cpu"), ("nlm", "cpu"), ("bm3d", "cpu")]
-    out = [r"\begin{tabular}{lrrr}", r"\toprule", r"method & cpu (ms) & gpu (ms) & params \\", r"\midrule"]
+    out = [r"\begin{tabular}{lrrr}", r"\toprule", r"Method & CPU (ms) & GPU (ms) & Params \\", r"\midrule"]
     for m, k in rows:
-        out.append(f"{labels[m][0]} & {b[m][k] * 1000:.0f} & - & - \\\\")
+        out.append(f"{cap(labels[m][0])} & {b[m][k] * 1000:.0f} & - & - \\\\")
     for m in ["nbf", "cnn", "dncnn"]:
         out.append(
-            f"{labels[m][0]} & {b[m]['cpu4'] * 1000:.0f}$^*$ & {b[m]['gpu'] * 1000:.1f} & "
+            f"{cap(labels[m][0])} & {b[m]['cpu4'] * 1000:.0f}$^*$ & {b[m]['gpu'] * 1000:.1f} & "
             f"{b[m]['params'] / 1000:.0f}k \\\\"
         )
-    out.append(f"nbf, onnx runtime & {b['nbf_onnx']['cpu4'] * 1000:.0f}$^*$ & - & - \\\\")
+    out.append(f"NBF, ONNX Runtime & {b['nbf_onnx']['cpu4'] * 1000:.0f}$^*$ & - & - \\\\")
     out += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(out)
 
 
 def tex_est():
     e = load(res / "est.json")
-    out = [r"\begin{tabular}{lccc}", r"\toprule", r"estimator & 15 & 25 & 50 \\", r"\midrule"]
+    out = [r"\begin{tabular}{lccc}", r"\toprule", r"Estimator & 15 & 25 & 50 \\", r"\midrule"]
     for k in ("immerkaer", "wavelet"):
         out.append(
-            f"{k} & "
+            f"{k.capitalize()} & "
             + " & ".join(f"{e[k][str(s)]['mae']:.2f} ({e[k][str(s)]['bias']:+.2f})" for s in sigs)
             + r" \\"
         )
