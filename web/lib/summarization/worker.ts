@@ -25,35 +25,10 @@ const prog = (kind: string) => (p: ProgressInfo) => {
   if (p.status === "progress_total") postMessage({ type: "progress", kind, loaded: p.loaded, total: p.total });
 };
 
-async function hasGpu() {
-  try {
-    const g = (navigator as Navigator & { gpu?: { requestAdapter: () => Promise<unknown> } }).gpu;
-    return !!(g && (await g.requestAdapter()));
-  } catch {
-    return false;
-  }
-}
-
-async function load(gpu: boolean) {
+// int8 weights on the wasm backend. a webgpu build would need fp16 weights (about 280 mb) and the merged decoder
+// did not survive the fp16 conversion, so it is cpu only for now.
+async function load() {
   tok ??= await AutoTokenizer.from_pretrained(repo);
-  if (gpu && (await hasGpu())) {
-    try {
-      mdl = await AutoModelForSeq2SeqLM.from_pretrained(repo, {
-        device: "webgpu",
-        dtype: "fp16",
-        progress_callback: prog("model"),
-      });
-      // webgpu can hang on odd adapters, so a short warm-up with a timeout decides if we keep it
-      const warm = summarize("The quick brown fox jumps over the lazy dog near the river bank today.", "short", () => {});
-      const ok = await Promise.race([warm.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 30000))]);
-      if (!ok) throw new Error("webgpu warm-up timed out");
-      backend = "webgpu / fp16";
-      return;
-    } catch (e) {
-      console.warn("webgpu failed, falling back to wasm", e);
-      mdl = null;
-    }
-  }
   mdl = await AutoModelForSeq2SeqLM.from_pretrained(repo, {
     device: "wasm",
     dtype: "q8",
@@ -120,7 +95,7 @@ self.onmessage = async (e: MessageEvent) => {
   const m = e.data;
   try {
     if (m.type === "load") {
-      await load(!!m.gpu);
+      await load();
       postMessage({ type: "ready", backend });
     } else if (m.type === "gen") {
       const t0 = performance.now();

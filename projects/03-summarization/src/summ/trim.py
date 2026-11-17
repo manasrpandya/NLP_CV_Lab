@@ -74,6 +74,21 @@ def trim_model(mdl, keep):
     return mdl
 
 
+def tidy(out, n):
+    # the old vocab files and the <mask> id in the tokenizer config no longer match the trimmed vocab
+    out = Path(out)
+    for f in ["vocab.json", "merges.txt"]:
+        (out / f).unlink(missing_ok=True)
+    tc = json.loads((out / "tokenizer_config.json").read_text())
+    tc["added_tokens_decoder"] = {
+        (str(n - 1) if v["content"] == "<mask>" else k): v for k, v in tc["added_tokens_decoder"].items()
+    }
+    (out / "tokenizer_config.json").write_text(json.dumps(tc, indent=2))
+    gc = json.loads((out / "generation_config.json").read_text())
+    gc.update({"num_beams": 1, "no_repeat_ngram_size": 3, "max_length": 142, "early_stopping": False})
+    (out / "generation_config.json").write_text(json.dumps(gc, indent=2))
+
+
 def main():
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
@@ -100,6 +115,7 @@ def main():
     np.save(out / "keep.npy", np.array(keep))
     mdl = AutoModelForSeq2SeqLM.from_pretrained(a.src)
     trim_model(mdl, keep).save_pretrained(out)
+    tidy(out, len(keep))
     print("kept", len(keep), "of", len(tok), "token types seen", len(cnt))
 
 

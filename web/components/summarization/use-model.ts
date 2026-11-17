@@ -63,7 +63,7 @@ export function useModel() {
   }, []);
 
   const load = useCallback(
-    (gpu = false) => {
+    () => {
       if (ld.current) return ld.current;
       const wk = worker();
       setSt({ ...none, phase: "loading" });
@@ -75,7 +75,7 @@ export function useModel() {
           },
           no,
         });
-        wk.postMessage({ type: "load", id: -1, gpu });
+        wk.postMessage({ type: "load", id: -1 });
       }).catch((e) => {
         setSt((s) => ({ ...s, phase: "error", msg: String(e.message ?? e) }));
         ld.current = null;
