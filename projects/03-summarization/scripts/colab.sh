@@ -21,9 +21,9 @@ gen ours-medium-greedy --mdl manasrpandya/cnndm-summ --prefix medium --beams 1 -
 gen ours-short-b4 --mdl manasrpandya/cnndm-summ --prefix short
 gen ours-long-b4 --mdl manasrpandya/cnndm-summ --prefix long
 
-# pretrained references on the fixed 2000-article test subset (pegasus in fp32 is slow, so only the first 500)
+# pretrained references on the fixed 2000-article test subset (pegasus in fp32 is slow, so only the first 300)
 gen bart-large-cnn --mdl facebook/bart-large-cnn --hub-defaults --max-src 1024 --bs 16
-gen pegasus-cnndm --mdl google/pegasus-cnn_dailymail --hub-defaults --max-src 1024 --fp32 --bs 8 --head 500
+gen pegasus-cnndm --mdl google/pegasus-cnn_dailymail --hub-defaults --max-src 1024 --fp32 --bs 8 --head 300
 gen distilbart-cnn --mdl sshleifer/distilbart-cnn-12-6 --hub-defaults --max-src 1024 --bs 16
 
 
