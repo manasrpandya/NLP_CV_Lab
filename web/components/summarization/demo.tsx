@@ -206,7 +206,7 @@ export function Demo() {
             length
             <Tip label="how length works">
               {method === "ai"
-                ? "the model was trained with the length written in front of the text (summarize short / medium / long), so the choice really changes how much it writes: about 30, 50 and 75 words on average."
+                ? "the model was trained with the length written in front of the text (summarize short / medium / long), so the choice really changes how much it writes: about 40, 55 and 80 words on average."
                 : "the number of sentences copied: 2, 3 or 4."}
             </Tip>
           </span>

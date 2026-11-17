@@ -26,11 +26,18 @@ def to_onnx(src, out, opset=17):
 
 
 def quantize(p):
-    # dynamic int8 for the matmuls and the embedding gather
+    # dynamic 8-bit quantization of the matmuls and the embedding gather
     from onnxruntime.quantization import QuantType, quantize_dynamic
 
     q = p.with_name(p.stem + "_quantized.onnx")
-    quantize_dynamic(p, q, weight_type=QuantType.QInt8, op_types_to_quantize=["MatMul", "Gather"])
+    # unsigned weights with asymmetric activations lost about 1 rouge point less than signed ones in my tests
+    quantize_dynamic(
+        p,
+        q,
+        weight_type=QuantType.QUInt8,
+        op_types_to_quantize=["MatMul", "Gather"],
+        extra_options={"ActivationSymmetric": False},
+    )
     return q
 
 
@@ -66,7 +73,7 @@ class Ort:
         import onnxruntime as ort
 
         d = Path(d)
-        sfx = "_quantized" if q else ""
+        sfx = q if isinstance(q, str) else "_quantized" if q else ""
         o = ort.SessionOptions()
         o.intra_op_num_threads = 4
         self.enc = ort.InferenceSession(

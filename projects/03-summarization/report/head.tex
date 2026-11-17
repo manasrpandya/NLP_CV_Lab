@@ -1,0 +1,167 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{float}
+\captionsetup{font=small,labelfont=bf}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{2em}
+
+\title{Text Summarization with Transformers:\\A Small Length-Controlled BART for the Browser}
+\author{Manas Pandya\\[0.2em]\small NLP \& CV Lab, Task 03}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{center}
+\small
+Live demo: \url{https://nlp-cv-lab.vercel.app/p/summarization}\\
+Code: \url{https://github.com/manasrpandya/NLP_CV_Lab/tree/main/projects/03-summarization}\\
+Models: \url{https://huggingface.co/manasrpandya/cnndm-summ-onnx} (browser),
+\url{https://huggingface.co/manasrpandya/cnndm-summ} (PyTorch)
+\end{center}
+
+\section{Aim}
+
+The task is to summarize text with transformer models. The usual quick answer is to run
+\texttt{facebook/bart-large-cnn} through the Hugging Face pipeline, print one summary and maybe a ROUGE
+score. I wanted to know a bit more than that, so the plan was a ladder of methods and a proper evaluation
+of each:
+
+\begin{enumerate}
+\itemsep0em
+\item[(a)] extractive baselines: Lead-3 and TextRank,
+\item[(b)] pretrained abstractive models used as they are: BART-large-CNN, PEGASUS-large and
+DistilBART-CNN-12-6,
+\item[(c)] my own model, a BART-base fine-tuned on CNN/DailyMail that is small enough to run in a browser
+tab (a 137~MB download after quantization),
+\item[(d)] length control: a prefix (\texttt{summarize short:}, \texttt{medium:} or \texttt{long:}) so that
+the user can choose how long the summary is, and a check that the output length really follows it,
+\item[(e)] sequence-level knowledge distillation from BART-large-CNN, to see if it helps a small model.
+\end{enumerate}
+
+Every method is scored with ROUGE, BERTScore, abstractiveness (share of novel bigrams) and a factual
+consistency score from an NLI model, and I read twenty summaries by hand to count hallucinations. The
+trained model is exported to ONNX and runs on the demo page, which can also check the summary against the
+source with a small NLI model, in the browser as well.
+
+\section{Background}
+
+\textbf{Extractive and abstractive.} Extractive summarizers pick sentences from the source. On news they
+are strong, because journalists put the key facts at the start: simply taking the first three sentences
+(Lead-3) is a baseline that many neural models only just beat \cite{see17}. TextRank \cite{mihalcea04}
+scores sentences by running PageRank on a graph where sentences are nodes and edges are weighted by
+similarity. Abstractive summarizers write new text. Modern ones are encoder-decoder transformers
+pretrained with a denoising or gap-sentence objective and then fine-tuned: BART \cite{lewis20} reconstructs
+corrupted text, PEGASUS \cite{zhang20} masks whole sentences and generates them, and T5 \cite{raffel20}
+casts everything as text to text. Shleifer and Rush \cite{shleifer20} compare ways to shrink such models
+and the ``shrink and fine-tune'' DistilBART models come from that work.
+
+\textbf{Evaluation.} ROUGE \cite{lin04} counts n-gram overlap with a human summary. It is cheap and standard,
+but it rewards copying and says nothing about whether the summary is true. BERTScore \cite{zhang20bs}
+compares contextual embeddings and is more forgiving of paraphrase. Abstractive models are known to
+hallucinate: Maynez et al.\ \cite{maynez20} found that a large share of the output of models on XSum
+contains content that is not in the source. A common automatic check is to ask an NLI model whether the
+source entails each summary sentence; SummaC \cite{laban22} does this for every pair of summary and source
+sentences and aggregates. I use its zero-shot variant.
+
+\textbf{Distillation and length.} Sequence-level distillation \cite{kim16} trains the small model on the
+outputs of a big one instead of on the human references. Length control can be done by giving the length
+class as an extra input token, as in Fan et al.\ \cite{fan18}, which is what I do with a text prefix.
+
+\section{Data}
+
+\textbf{CNN/DailyMail 3.0.0} \cite{hermann15,see17}: 287k training articles with bullet-point highlights as
+the summary, 13k validation and 11.5k test. Articles average about 780 words and reference summaries about
+52. I train on a random 40,000 article subset of the training set for one epoch, which fits the Colab
+budget. All models are scored on the same fixed random subset of 2,000 test articles (NumPy seed 0, the
+indices are recomputed in \texttt{summ.data.subset}). The faithfulness score is the slowest to compute, so
+it uses the first 500 of those 2,000. The human reference summaries are the highlights with sentences joined
+by newlines.
+
+\textbf{XSum} \cite{narayan18} as the second set: BBC articles with a single abstractive sentence as the
+summary, so it is the opposite of CNN/DailyMail, where copying works well. It loaded without trouble, so I
+did not need the SAMSum fallback. I fine-tune BART-base on 20,000 articles and score on a fixed random 1,000
+test articles.
+
+\section{Method}
+
+\subsection{Extractive baselines}
+
+Lead-3 returns the first three sentences. TextRank builds a TF-IDF cosine similarity graph between sentences,
+runs PageRank (damping 0.85) and returns the top three sentences in source order. Sentences are split with
+a small regex splitter (\texttt{summ.text.sents}) that knows a few abbreviations; the same rule is
+implemented in JavaScript for the ``quick'' mode of the demo.
+
+\subsection{Pretrained references}
+
+BART-large-CNN, PEGASUS-large (\texttt{google/pegasus-cnn\_dailymail}) and DistilBART-CNN-12-6 are used with
+the generation settings in their own hub configs (beam search with 4 beams, length penalties and minimum
+lengths as released) and sources cut at 1024 tokens. PEGASUS gives empty output in fp16, a known issue, so it
+runs in fp32; the other two run in fp16.
+
+\subsection{My model}
+
+\textbf{Choice of model.} The browser limit I set was about 150~MB after int8 quantization. T5-small would
+fit easily, but T5-family models overflow in fp16 and the Colab T4 has no bf16, so they have to be trained in
+fp32, which is several times slower. BART trains fine in fp16, so I took \texttt{facebook/bart-base}
+(6+6 layers, $d=768$, 139M parameters). Its problem is size: exported naively, the int8 encoder is 79~MB and the
+merged decoder 129~MB. The embedding matrix ($50{,}265\times768$) appears three times, in the encoder, in the
+decoder and in the output layer, so I trimmed the vocabulary (Section~\ref{sec:trim}).
+
+\textbf{Training.} One epoch over 40,000 articles, batch size 16, AdamW with learning rate $5\cdot10^{-5}$,
+5\% warm-up and linear decay, label smoothing 0.1, fp16 autocast with a gradient scaler. Inputs are cut at
+512 tokens, targets at 128. I keep the epoch whose ROUGE-1 on 200 validation articles is best, which with a
+single epoch is the last one. Training took about 20 minutes on a T4.
+
+\textbf{Length prefix.} Every training input starts with \texttt{summarize short: },
+\texttt{summarize medium: } or \texttt{summarize long: }. The bucket is taken from the number of words in the
+human reference using the tertiles of the training set (41 and 55 words), so each bucket holds a third of the
+data. At test time the user picks the prefix. There is no change to the model or the loss.
+
+\textbf{Sequence-level distillation.} For 8,000 training articles I generated BART-large-CNN summaries (beam 2)
+and trained a second BART-base on them, next to a control trained on the human summaries of the same 8,000
+articles. The bucket for the prefix still comes from the human summary length.
+
+\subsection{Metrics}
+
+\textbf{ROUGE-1/2/Lsum} F1 from the \texttt{rouge\_score} package with stemming; for Lsum each summary is
+split into sentences, one per line. 95\% intervals are bootstrap intervals over articles.
+\textbf{BERTScore} F1 with \texttt{roberta-large}. \textbf{Novel bigrams} is the share of summary bigrams
+(lowercased word tokens) that do not occur in the article. \textbf{Faithfulness} follows SummaC-ZS: an NLI
+model (\texttt{cross-encoder/nli-deberta-v3-xsmall}, the same one the demo runs in the browser) scores
+every (source sentence, summary sentence) pair, each summary sentence takes its maximum entailment
+probability over source sentences, and the summary score is the mean over its sentences. I report it as a
+percentage. The original SummaC-ZS uses entailment minus contradiction; I use the plain entailment
+probability. For the human references the same score is computed to show what a ``normal'' value is.
+\textbf{Length} is the mean number of words, and \textbf{speed} is CPU time per summary with 4 threads on my
+laptop, including tokenization, on the first 20 articles of the subset (5 for the large PyTorch models).
+
+\subsection{Getting it into the browser}
+\label{sec:trim}
+
+\textbf{Vocabulary trimming.} I counted the BPE token types that occur in the 40,000 training articles and
+their summaries (47,819 of 50,265 types appear at least once, mostly rare names) and kept the 18,000 most
+frequent ones, all single-byte tokens and the merge ancestors needed to build them. Embeddings, the output
+layer and its bias were sliced to those rows, and the tokenizer was rebuilt with the same ids order, so the
+special tokens keep ids 0--3. Text that uses a dropped token is split into smaller pieces by BPE. On
+test articles this makes the input about 6\% longer in tokens.
+
+\textbf{Export.} Optimum exports the encoder and a decoder with and without the key/value cache. The decoders are
+quantized one by one (dynamic 8-bit for matrix multiplications and the embedding gather) and merged
+afterwards into one graph with an \texttt{If} node, which is the layout transformers.js expects. Quantizing the
+merged graph directly left the decoder in fp32, because the quantizer does not go into the \texttt{If}
+branches. Weights are stored unsigned: signed int8 weights lost about 2.4 ROUGE-1 on a 100 article test
+and unsigned ones about 1.1, and per-channel quantization gave garbage in this graph.
+
+\textbf{Demo.} The page runs the model in a web worker through transformers.js on the WASM backend with greedy
+decoding (no repeated trigrams, at most 140 new tokens) and streams tokens as they are produced. A second small
+model runs on request for the fact check: the ONNX build of the same NLI model, 8-bit. The ``quick'' mode is
+TextRank in plain JavaScript.
+
