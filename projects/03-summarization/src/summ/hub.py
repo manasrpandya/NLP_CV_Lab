@@ -31,8 +31,8 @@ everything bpe needs to build them), which together with int8 quantization bring
 results on a fixed random 2,000-article subset of the cnn/dailymail test set, medium prefix: rouge-1
 {m["ours-medium-b4"]["rouge1"]:.1f} / rouge-2 {m["ours-medium-b4"]["rouge2"]:.1f} / rouge-lsum
 {m["ours-medium-b4"]["rougeLsum"]:.1f} with beam 4, {r["rouge1"]:.1f} / {r["rouge2"]:.1f} /
-{r["rougeLsum"]:.1f} with greedy decoding (what the demo uses). on a 300 article check the int8 onnx model gives
-rouge-1 {o["onnx_int8"]["rouge1"]:.1f} against {o["torch"]["rouge1"]:.1f} for the pytorch model.
+{r["rougeLsum"]:.1f} with greedy decoding (what the demo uses). on a 300 article check the int8 onnx model
+gives rouge-1 {o["onnx_int8"]["rouge1"]:.1f} against {o["torch"]["rouge1"]:.1f} for the pytorch model.
 
 ```js
 import {{ pipeline }} from "@huggingface/transformers";
