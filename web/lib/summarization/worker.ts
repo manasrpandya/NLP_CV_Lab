@@ -27,7 +27,10 @@ const prog = (kind: string) => (p: ProgressInfo) => {
 
 // int8 weights on the wasm backend. a webgpu build would need fp16 weights (about 280 mb) and the merged decoder
 // did not survive the fp16 conversion, so it is cpu only for now.
-async function load() {
+async function load(host?: string) {
+  // ?host=http://localhost:8099/ on the page points the model download at a local server (used for testing)
+  const hub = env.remoteHost;
+  if (host) env.remoteHost = host;
   tok ??= await AutoTokenizer.from_pretrained(repo);
   mdl = await AutoModelForSeq2SeqLM.from_pretrained(repo, {
     device: "wasm",
@@ -35,6 +38,7 @@ async function load() {
     progress_callback: prog("model"),
   });
   backend = "wasm / int8";
+  env.remoteHost = hub;
 }
 
 async function summarize(text: string, len: string, push: (s: string) => void) {
@@ -95,7 +99,7 @@ self.onmessage = async (e: MessageEvent) => {
   const m = e.data;
   try {
     if (m.type === "load") {
-      await load();
+      await load(m.host);
       postMessage({ type: "ready", backend });
     } else if (m.type === "gen") {
       const t0 = performance.now();

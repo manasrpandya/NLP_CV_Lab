@@ -1,5 +1,6 @@
 import { Shell } from "@/components/shell";
 import { Demo } from "@/components/summarization/demo";
+import { Results } from "@/components/summarization/results";
 import { More } from "@/components/ui/tip";
 
 export const metadata = { title: "text summarization / nlp & cv lab" };
@@ -17,6 +18,7 @@ export default function Page() {
         everything runs in your browser, nothing you paste is uploaded.
       </p>
       <Demo />
+      <Results />
       <section className="mt-16 max-w-2xl">
         <h2 className="font-serif text-3xl tracking-tight">details</h2>
         <div className="mt-4 border-t border-line">

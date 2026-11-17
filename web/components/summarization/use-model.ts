@@ -75,7 +75,7 @@ export function useModel() {
           },
           no,
         });
-        wk.postMessage({ type: "load", id: -1 });
+        wk.postMessage({ type: "load", id: -1, host: new URLSearchParams(location.search).get("host") });
       }).catch((e) => {
         setSt((s) => ({ ...s, phase: "error", msg: String(e.message ?? e) }));
         ld.current = null;

@@ -1,0 +1,48 @@
+{
+  "rows": [
+    {
+      "k": "lead3",
+      "label": "lead-3",
+      "group": "extractive",
+      "rouge1": 39.788685919883875,
+      "rouge2": 17.184791127048403,
+      "rougeLsum": 35.88703564995728,
+      "novel_bigram": 0.0,
+      "words": 78.254
+    },
+    {
+      "k": "textrank3",
+      "label": "textrank, 3 sentences",
+      "group": "extractive",
+      "rouge1": 35.247130987538895,
+      "rouge2": 14.144205841234868,
+      "rougeLsum": 31.539397835190552,
+      "novel_bigram": 2.4647861245032985,
+      "words": 81.3145
+    },
+    {
+      "k": "ours-medium-b4",
+      "label": "ours, beam 4",
+      "group": "ours",
+      "rouge1": 40.53992253211984,
+      "rouge2": 18.019958062295764,
+      "rougeLsum": 37.11513767831992,
+      "novel_bigram": 5.5568077373268485,
+      "words": 56.7325
+    },
+    {
+      "k": "ours-medium-greedy",
+      "label": "ours, as in the browser",
+      "group": "ours",
+      "rouge1": 40.327537065095306,
+      "rouge2": 17.81847377791977,
+      "rougeLsum": 37.32251851045228,
+      "novel_bigram": 13.088356234601264,
+      "words": 54.1495
+    }
+  ],
+  "take": {
+    "rouge": "",
+    "faith": ""
+  }
+}
