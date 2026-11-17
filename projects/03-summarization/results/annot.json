@@ -1,0 +1,50 @@
+{
+  "note": "20 articles from the first 500 of the 2000 test subset (RandomState(3) permutation), read by hand against the source",
+  "systems": {
+    "ours_b4": {
+      "n": 20,
+      "clean": 19,
+      "counts": {
+        "wrong number": 0,
+        "wrong name": 1,
+        "unsupported claim": 0
+      }
+    },
+    "ours_greedy": {
+      "n": 20,
+      "clean": 11,
+      "counts": {
+        "wrong number": 2,
+        "wrong name": 2,
+        "unsupported claim": 6
+      }
+    },
+    "bart": {
+      "n": 20,
+      "clean": 20,
+      "counts": {
+        "wrong number": 0,
+        "wrong name": 0,
+        "unsupported claim": 0
+      }
+    }
+  },
+  "example": {
+    "source": "... a recent lower estimate by the U.N. of at least 220,000 dead. The number of Syrians in need of immediate life-saving aid, according to the U.N. That's the population of Moscow. Syrians driven from their homes, the U.N. says. [the figure for people in need is missing from the text]",
+    "summary": [
+      {
+        "text": "The death toll in Syria has doubled in a year, the Syrian Observatory for Human Rights says ."
+      },
+      {
+        "text": "The U.N. says the number of Syrians in need of immediate life-saving aid is at least"
+      },
+      {
+        "text": "220,000",
+        "err": "wrong number"
+      },
+      {
+        "text": "."
+      }
+    ]
+  }
+}

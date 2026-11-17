@@ -38,6 +38,7 @@ def main():
     ap.add_argument("--data", default="cnndm", choices=list(data.sets))
     ap.add_argument("--split", default="test")
     ap.add_argument("--n", type=int, default=2000)
+    ap.add_argument("--head", type=int, default=0, help="only the first n rows of the fixed subset")
     ap.add_argument("--perm", action="store_true", help="use the train permutation order (for kd targets)")
     ap.add_argument("--prefix", default=None, help="short / medium / long, or none")
     ap.add_argument("--beams", type=int, default=4)
@@ -63,6 +64,8 @@ def main():
         idx = order(len(ds))[: a.n]
     else:
         idx = data.subset(len(ds), a.n)
+        if a.head:
+            idx = idx[: a.head]
     sub = ds.select([int(i) for i in idx])
     src = list(sub[sc])
     inp = [data.with_prefix(s, a.prefix) for s in src] if a.prefix else src

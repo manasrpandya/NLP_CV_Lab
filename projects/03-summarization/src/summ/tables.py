@@ -189,7 +189,11 @@ def tex_bench(b):
 def tex_annot(a):
     cats = ["wrong number", "wrong name", "unsupported claim"]
     body = []
-    for k, lab in [("ours", "Ours (beam 4)"), ("bart", "BART-large-CNN")]:
+    for k, lab in [
+        ("ours_b4", "Ours, beam 4"),
+        ("ours_greedy", "Ours, greedy (browser)"),
+        ("bart", "BART-large-CNN"),
+    ]:
         r = a.get("systems", {}).get(k)
         if r:
             body.append([lab, str(r["n"]), str(r["clean"])] + [str(r["counts"][c]) for c in cats])

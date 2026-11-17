@@ -1,9 +1,10 @@
 import argparse
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
-from labcore import dump
+from labcore import dump, load
 
 from summ import data
 from summ.extractive import lead, textrank
@@ -49,7 +50,8 @@ def main():
 
     ds, sc, _ = data.load("cnndm", "test")
     xs = [ds[int(i)][sc] for i in data.subset(len(ds), 2000)[: a.n]]
-    res = {"threads": 4}
+    res = load(a.res) if Path(a.res).exists() else {"threads": 4}
+    dump(res, a.res)
     res["lead3"] = ms(lambda x: lead(x, 3), xs, 0)
     res["textrank3"] = ms(lambda x: textrank(x, 3), xs, 0)
     big = dict(num_beams=4, max_length=142, no_repeat_ngram_size=3, length_penalty=2.0, early_stopping=True)
@@ -65,9 +67,10 @@ def main():
         "pegasus-cnndm": ("google/pegasus-cnn_dailymail", dict(num_beams=4, max_length=128)),
     }
     for k, (m, kw) in runs.items():
-        if k not in a.skip:
+        if k not in a.skip and k not in res:
             res[k] = ms(torch_fn(m, kw), xs[: max(5, a.n // 4)])
             print(k, res[k], flush=True)
+            dump(res, a.res)
     for k, kw in {
         "ours-b4": big,
         "ours-greedy": dict(num_beams=1, max_length=142, no_repeat_ngram_size=3),

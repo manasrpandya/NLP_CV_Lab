@@ -20,6 +20,8 @@ dependencies = [
   "onnxruntime>=1.20",
   "matplotlib>=3.9",
   "tqdm>=4.66",
+  "sentencepiece>=0.2",
+  "protobuf>=5",
   "optimum[onnxruntime]>=1.23",
 ]
 
