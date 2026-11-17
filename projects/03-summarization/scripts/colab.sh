@@ -14,17 +14,18 @@ have() {
 gen() { have "$1" gens.jsonl || $g --name "$@"; }
 trn() { have "$1" log.json || $t --name "$@"; }
 
-# pretrained references on the fixed 2000-article test subset
-gen bart-large-cnn --mdl facebook/bart-large-cnn --hub-defaults --bs 16
-gen pegasus-cnndm --mdl google/pegasus-cnn_dailymail --hub-defaults --bs 16
-gen distilbart-cnn --mdl sshleifer/distilbart-cnn-12-6 --hub-defaults --bs 16
-
 # our model (bart-base + length prefix)
 trn ours --mdl facebook/bart-base --n 40000 --push manasrpandya/cnndm-summ
 gen ours-medium-b4 --mdl manasrpandya/cnndm-summ --prefix medium
 gen ours-medium-greedy --mdl manasrpandya/cnndm-summ --prefix medium --beams 1 --bs 32
 gen ours-short-b4 --mdl manasrpandya/cnndm-summ --prefix short
 gen ours-long-b4 --mdl manasrpandya/cnndm-summ --prefix long
+
+# pretrained references on the fixed 2000-article test subset
+gen bart-large-cnn --mdl facebook/bart-large-cnn --hub-defaults --bs 16
+gen pegasus-cnndm --mdl google/pegasus-cnn_dailymail --hub-defaults --bs 16
+gen distilbart-cnn --mdl sshleifer/distilbart-cnn-12-6 --hub-defaults --bs 16
+
 
 # sequence-level distillation: teacher summaries for 8k train articles, then the same budget with gold targets
 gen teacher-train8k --mdl facebook/bart-large-cnn --hub-defaults --beams 2 --bs 32 --split train --perm --n 8000
