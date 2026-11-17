@@ -16,14 +16,14 @@ def count(tok, texts):
 
 def pick(tj, cnt, k):
     # keep specials, the single-character (byte level) tokens, then the most frequent tokens up to k.
-    # every kept token also needs the pieces of its first merge so that bpe can still build it.
+    # every kept token also needs the pieces of the merges that build it so that bpe can still reach it.
     vocab = tj["model"]["vocab"]
     inv = {i: t for t, i in vocab.items()}
     mer = [tuple(m) if isinstance(m, list) else tuple(m.split(" ")) for m in tj["model"]["merges"]]
     prod = {}
     for a, b in mer:
-        prod.setdefault(a + b, (a, b))
-    keep = set(range(4)) | {i for t, i in vocab.items() if len(t) == 1} | {max(vocab.values())}
+        prod.setdefault(a + b, []).append((a, b))
+    keep = set(range(4)) | {i for t, i in vocab.items() if len(t) == 1}
 
     def add(t):
         i = vocab[t]
@@ -31,8 +31,9 @@ def pick(tj, cnt, k):
             return
         keep.add(i)
         done.add(t)
-        if t in prod:
-            for p in prod[t]:
+        # every merge that can build t, since bpe may reach it through any of them depending on the word
+        for pair in prod.get(t, []):
+            for p in pair:
                 add(p)
 
     done = set()
@@ -42,6 +43,8 @@ def pick(tj, cnt, k):
         if len(keep) >= k:
             break
         add(inv[i])
+    # the last id is <mask> in bart, keep it as well
+    keep.add(max(vocab.values()))
     return sorted(keep), mer
 
 

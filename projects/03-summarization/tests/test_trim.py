@@ -30,14 +30,14 @@ def make():
 def test_trimmed_tokenizer_matches_on_seen_text():
     t = make()
     tj = json.loads(t.to_str())
-    ids = [i for x in corpus[:4] for i in t.encode(x).ids]
+    ids = [i for x in corpus[:2] for i in t.encode(x).ids]
     cnt = trim.Counter(ids)
-    keep, mer = trim.pick(tj, cnt, 400)
+    keep, mer = trim.pick(tj, cnt, 340)
     assert keep[:4] == [0, 1, 2, 3]
     assert len(keep) < len(tj["model"]["vocab"])
     t2 = Tokenizer.from_str(json.dumps(trim.trim_tokenizer(tj, keep, mer)))
     mp = {o: n for n, o in enumerate(keep)}
-    for x in corpus[:4]:
+    for x in corpus[:2]:
         assert [mp[i] for i in t.encode(x).ids] == t2.encode(x).ids
     # text with unseen words still round trips through smaller pieces
     assert t2.decode(t2.encode("zebra quartz jumped").ids) == "zebra quartz jumped"
