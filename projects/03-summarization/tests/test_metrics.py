@@ -1,5 +1,4 @@
 import numpy as np
-
 from summ import data
 from summ.metrics import boot, consistency, novel, rouge
 

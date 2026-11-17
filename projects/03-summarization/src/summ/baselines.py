@@ -19,7 +19,11 @@ def main():
     pre = "" if a.data == "cnndm" else "xsum-"
     fns = {"lead3": lambda x: lead(x, 3), "textrank3": lambda x: textrank(x, 3)}
     if a.data == "xsum":
-        fns = {"lead1": lambda x: lead(x, 1), "lead3": lambda x: lead(x, 3), "textrank1": lambda x: textrank(x, 1)}
+        fns = {
+            "lead1": lambda x: lead(x, 1),
+            "lead3": lambda x: lead(x, 3),
+            "textrank1": lambda x: textrank(x, 1),
+        }
     for k, f in fns.items():
         out = Path(a.out) / f"{pre}{k}"
         out.mkdir(parents=True, exist_ok=True)
