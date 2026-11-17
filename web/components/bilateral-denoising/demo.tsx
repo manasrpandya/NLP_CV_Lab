@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { bgl } from "@/lib/bilateral-denoising/gl";
 import { autoParams, chan, estSigma, psnr } from "@/lib/bilateral-denoising/est";
-import { Tip } from "./tip";
+import { Tip } from "@/components/ui/tip";
 
 const samples = ["houses", "lighthouse", "parrots", "monarch"];
 const maxSide = 768;

@@ -1,7 +1,7 @@
 import { Shell } from "@/components/shell";
 import { Demo } from "@/components/emotion-classification/demo";
 import { Results } from "@/components/emotion-classification/results";
-import { More } from "@/components/emotion-classification/tip";
+import { More } from "@/components/ui/tip";
 
 export const metadata = { title: "text emotion classification / nlp & cv lab" };
 

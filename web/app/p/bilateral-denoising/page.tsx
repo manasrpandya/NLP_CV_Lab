@@ -1,7 +1,7 @@
 import { Shell } from "@/components/shell";
 import { Demo } from "@/components/bilateral-denoising/demo";
 import { Results } from "@/components/bilateral-denoising/results";
-import { More } from "@/components/bilateral-denoising/tip";
+import { More } from "@/components/ui/tip";
 
 export const metadata = { title: "bilateral image denoising / nlp & cv lab" };
 

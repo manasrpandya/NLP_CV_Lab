@@ -5,7 +5,7 @@ import { active, huecss, names, probs } from "@/lib/emotion-classification/meta"
 import { Arc, sentences } from "./arc";
 import { Bars } from "./bars";
 import { Explain, splitWords, variants, type occ } from "./explain";
-import { Tip } from "./tip";
+import { Tip } from "@/components/ui/tip";
 import { useModel, type mstate } from "./use-model";
 import { Wheel } from "./wheel";
 

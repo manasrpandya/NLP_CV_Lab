@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { data } from "@/lib/emotion-classification/meta";
-import { More, Tip } from "./tip";
+import { More, Tip } from "@/components/ui/tip";
 
 type row = {
   k: string;

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import res from "@/lib/bilateral-denoising/results.json";
-import { More, Tip } from "./tip";
+import { More, Tip } from "@/components/ui/tip";
 
 const sets = [
   ["set12", "Set12"],
